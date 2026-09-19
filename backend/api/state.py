@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from backend.core import clock
 from backend.core.db import Db
 from backend.core.security import User, current_user, db_dep
+from backend.policy import gate
 
 router = APIRouter()
 ms = clock.ms
@@ -101,7 +102,7 @@ def build_state(db: Db, user: User) -> dict:
     approvals = [
         {"id": a["id"], "kind": a["kind"], "cid": a["campaign_id"], "eid": a["enrollment_id"], "t": ms(a["created_at"]), "status": a["status"],
          "runId": a["run_id"], "msgId": a["msg_id"], "stepNo": a["step_no"], "blocked": a["blocked"], "by": a["decided_by"], "at": ms(a["decided_at"]),
-         "reason": a["reason"]}
+         "reason": a["reason"], "gate": _gate_for(db, a)}
         for a in db.q(f"select * from approvals {where('campaign_id')} order by created_at", vp)
     ]
     escal = [
@@ -151,6 +152,17 @@ def build_state(db: Db, user: User) -> dict:
         "conflicts": conflicts, "meetings": meetings, "calls": calls, "claims": claims, "suppress": suppress, "prompts": prompts, "kb": kb, "integ": integ,
         "hist": {},
     }
+
+
+def _gate_for(db: Db, a: dict) -> dict | None:
+    """The gate reasons shown beside an open approval. Decided approvals need none."""
+    if a["status"] != "open" or not a["msg_id"]:
+        return None
+    m = db.q1("select channel, is_reply, kind from messages where id = %s", (a["msg_id"],))
+    if not m:
+        return None
+    e = db.q1("select * from enrollments where id = %s", (a["enrollment_id"],))
+    return gate.evaluate(db, e, m["channel"], reply=m["is_reply"], pricing=m["kind"] == "pricing_answer")
 
 
 def _suppressed_ids(db: Db) -> set[str]:

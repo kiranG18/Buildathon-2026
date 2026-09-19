@@ -39,4 +39,4 @@ ignore = ["E501", "B008", "B905"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --show-capture=no"

@@ -71,8 +71,7 @@ create table campaigns (
   created_at timestamptz not null default now(),
   last_activity timestamptz,
   dry_ok boolean not null default false,
-  tpl text,
-  require_prompt_approval boolean not null default false
+  tpl text
 );
 
 create table campaign_versions (

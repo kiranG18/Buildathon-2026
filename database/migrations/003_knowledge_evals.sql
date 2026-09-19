@@ -14,6 +14,7 @@ create table knowledge_chunks (
   id text primary key,
   document_id text not null references knowledge_documents(id) on delete cascade,
   campaign_id text,
+  origin_id text,
   scope text not null,
   doc_type text not null,
   tags text[] not null default '{}',

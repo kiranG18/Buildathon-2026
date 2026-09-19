@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from backend.core import clock  # noqa: E402
+from backend.core.config import get_settings  # noqa: E402
 from backend.core.db import Db, J, migrate, tx  # noqa: E402
 from backend.core.security import hash_password  # noqa: E402
 from rag.chunking import parse_frontmatter  # noqa: E402
@@ -72,10 +73,12 @@ def _users(db: Db, S: dict) -> None:
 
 
 def _integrations(db: Db, S: dict, ts) -> None:
+    cfg = get_settings()
+    env_mode = {"gmail": cfg.channel_mode_email, "twilio": cfg.channel_mode_sms, "voice": cfg.channel_mode_voice, "linkedin": "sandbox"}
     for k, v in S["integ"].items():
         db.x(
             "insert into integrations (key, name, description, mode, status, last_check, err, can_live, paused) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (k, v["n"], v["d"], v["mode"], v["status"], ts(v["last"]), v["err"], v["canLive"], bool(v.get("paused"))),
+            (k, v["n"], v["d"], env_mode.get(k, v["mode"]), v["status"], ts(v["last"]), v["err"], v["canLive"], bool(v.get("paused"))),
         )
 
 
@@ -156,7 +159,7 @@ def _messages(db: Db, S: dict, ts) -> None:
             """insert into messages (id, enrollment_id, prospect_id, campaign_id, channel, direction, body, segs, created_at, mode, status, is_seed, subject,
                run_id, kind, step_no, prompt_version, approved_by, classification, rule, sub, is_reply, is_ack, human, by_name, edited)
                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (m["id"], m["eid"], m["pid"], m["cid"], m["ch"], m["dir"], m["body"], J(m["segs"]) if m.get("segs") else None, ts(m["t"]), m["mode"], m["status"],
+            (m["id"], m["eid"], m["pid"], m["cid"], m["ch"], m["dir"], m["body"], J(m["segs"]) if m.get("segs") else None, ts(m["t"]), "sandbox", m["status"],
              m.get("subject"), m.get("runId"), m.get("kind"), m.get("stepNo"), m.get("pv"), m.get("approvedBy"), m.get("cls"), m.get("rule"), m.get("sub"),
              bool(m.get("reply")), bool(m.get("ack")), bool(m.get("human")), m.get("by"), bool(m.get("edited"))),
         )
@@ -187,7 +190,7 @@ def _activity(db: Db, S: dict, ts) -> None:
     for a in sorted(S["acts"], key=lambda x: x["t"]):
         db.x(
             "insert into activity (id, ts, enrollment_id, prospect_id, campaign_id, kind, text, agent, run_id, msg_id, mode, quiet) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (a["id"], ts(a["t"]), a.get("eid"), a.get("pid"), a.get("cid"), a["kind"], a["text"], a.get("agent"), a.get("runId"), a.get("msgId"), a.get("mode"), bool(a.get("quiet"))),
+            (a["id"], ts(a["t"]), a.get("eid"), a.get("pid"), a.get("cid"), a["kind"], a["text"], a.get("agent"), a.get("runId"), a.get("msgId"), "sandbox" if a.get("mode") else None, bool(a.get("quiet"))),
         )
 
 
@@ -212,7 +215,7 @@ def _misc(db: Db, S: dict, ts) -> None:
     for c in S["calls"]:
         db.x(
             "insert into calls (id, enrollment_id, prospect_id, at, dur, disposition, mode, run_id, transcript, summary) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (c["id"], c["eid"], c["pid"], ts(c["at"]), c["dur"], c["disposition"], c["mode"], c.get("runId"), J(c["tr"]), c["summary"]),
+            (c["id"], c["eid"], c["pid"], ts(c["at"]), c["dur"], c["disposition"], "sandbox", c.get("runId"), J(c["tr"]), c["summary"]),
         )
     prio = {c["id"]: c["priority"] for c in S["camps"]}
     for pid, cl in S["claims"].items():
