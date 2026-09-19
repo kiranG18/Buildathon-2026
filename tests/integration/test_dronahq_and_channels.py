@@ -212,6 +212,23 @@ def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enr
         REGISTRY.clear()
 
 
+def test_a_recipient_off_the_allowlist_is_recorded_as_a_sandbox_send_not_a_channel_failure(seeded, monkeypatch):
+    from backend.orchestrator.repo import channel_mode
+
+    monkeypatch.setattr(get_settings(), "allowed_recipients", "team@example.org")
+    REGISTRY["email"] = object()
+    try:
+        with scratch() as db:
+            db.x("update integrations set mode = 'live' where key = 'gmail'")
+            db.x("update prospects set email = 'team@example.org' where id = 'tomas-reyes'")
+            assert channel_mode(db, "email", "tomas-reyes") == "live"
+            assert channel_mode(db, "email", "dana-whitfield") == "sandbox"
+            assert channel_mode(db, "email") == "live"
+            assert channel_mode(db, "linkedin", "tomas-reyes") == "sandbox"
+    finally:
+        REGISTRY.clear()
+
+
 def test_twilio_send_failure_reports_the_twilio_error_code_and_nothing_personal(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "allowed_recipients", "+14155550100")
     adapters.set_transport(httpx.MockTransport(lambda req: httpx.Response(400, json={"code": 21608, "message": "The number +14155550100 is unverified"})))

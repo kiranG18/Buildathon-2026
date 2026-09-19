@@ -112,3 +112,12 @@ def test_a_verifier_blocked_draft_cannot_be_approved_until_edited(seeded, client
     r2 = client.post(f"/approvals/{a['id']}/decide", headers=auth(), json={"decision": "approve", "edited_body": "Hi Dana, would 20 minutes next week suit you?"})
     assert r2.json()["ok"] is True
     assert MANAGER["id"] == "U2"
+
+
+def test_open_approvals_get_their_gate_on_demand_and_state_stays_cheap(seeded, client, auth):
+    with tx() as db:
+        aid = db.q1("select id from approvals where status = 'open' and msg_id is not null limit 1")["id"]
+    r = client.get(f"/approvals/{aid}/gate", headers=auth())
+    assert r.status_code == 200 and r.json()["gate"]["cks"] and r.json()["gate"]["dec"] in ("allow", "defer", "hold", "replan", "block", "needs_approval")
+    assert client.get("/approvals/A-none/gate", headers=auth()).status_code == 404
+    assert all("gate" not in a for a in client.get("/state", headers=auth()).json()["approvals"])

@@ -106,6 +106,16 @@ function shell(body,seg){
  <button class="iconbtn" data-go="/approvals" aria-label="Approvals">${ic('bell',18)}<span class="n" id="bn" ${n?'':'hidden'}>${n}</span></button>${killBtn}</div>
  <div class="view" id="view">${body}</div></main></div>`;
 }
+const GATES={};
+function gateFor(x){
+ if(x.status!=='open')return null;
+ const c=GATES[x.id];
+ if(!c||(!c.busy&&Date.now()-c.at>20000)){
+  GATES[x.id]={at:c?c.at:0,gate:c?c.gate:null,busy:true};
+  api.get('/approvals/'+x.id+'/gate').then(r=>{GATES[x.id]={at:Date.now(),gate:r.gate};paint()}).catch(()=>{GATES[x.id]={at:Date.now(),gate:null}});
+ }
+ return GATES[x.id].gate;
+}
 function paint(){
  const root=$('#root');
  if(!S){root.innerHTML=loginPage();return}
@@ -285,7 +295,7 @@ function apprDetail(tab,x){
   <div class="row" style="margin-top:16px"><button class="btn pri" data-a="escSend" data-id="${x.id}">${ic('send',15)}Send reply and resolve</button><button class="btn" data-a="reassign" data-id="${x.id}" data-t="esc">Reassign</button></div></div>`;
  }
  const m=x.msgId&&S.msgs.find(z=>z.id===x.msgId);
- const g=m?x.gate:null;
+ const g=m?gateFor(x):null;
  if(x.kind==='borderline'){
   const cr=e.crit||[];
   return`<div class="card">${head}<div class="banner paused" style="font-weight:450;align-items:flex-start">${ic('eye',16)}<span><b>Score ${e.score==null?'-':e.score} against a threshold of ${c.thr}.</b> ${esc(e.reviewNote||'')}</span></div>${scorecard(e,cr)}

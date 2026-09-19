@@ -58,6 +58,19 @@ def list_approvals(status: str = "open", kind: str | None = None, campaign_id: s
     return out
 
 
+@router.get("/approvals/{aid}/gate")
+def approval_gate(aid: str, user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
+    """The Guardian's checks for one open approval, fetched when someone opens it so /state stays cheap."""
+    a = db.q1("select * from approvals where id = %s", (aid,))
+    vis = _vis(db, user)
+    if not a or (vis is not None and a["campaign_id"] not in vis):
+        raise NotFound("Approval not found")
+    m = db.q1("select channel, is_reply, kind from messages where id = %s", (a["msg_id"],)) if a["status"] == "open" and a["msg_id"] else None
+    if not m:
+        return {"gate": None}
+    return {"gate": gate.evaluate(db, enrollment(db, a["enrollment_id"]), m["channel"], reply=m["is_reply"], pricing=m["kind"] == "pricing_answer")}
+
+
 @router.post("/approvals/{aid}/decide")
 def decide(aid: str, body: DecideBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     if body.decision == "approve":

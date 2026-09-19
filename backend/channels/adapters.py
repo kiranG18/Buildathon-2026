@@ -32,16 +32,21 @@ def _client(timeout: float = 10.0) -> httpx.Client:
     return httpx.Client(transport=_transport, timeout=timeout)
 
 
-def enforce_allowed(address: str) -> None:
-    """Refuse anything outside ALLOWED_RECIPIENTS. Entries are full addresses, domains or phone numbers."""
+def is_allowed(address: str) -> bool:
+    """True when ALLOWED_RECIPIENTS lists the address. Entries are full addresses, domains or phone numbers."""
     a = address.strip().lower()
     domain = a.rsplit("@", 1)[-1] if "@" in a else ""
     base = a.split("+", 1)[0] + "@" + domain if "+" in a.split("@", 1)[0] and domain else a
     digits = "".join(ch for ch in a if ch.isdigit())
-    for entry in get_settings().allowed_list:
-        if entry in (a, base) or (domain and (domain == entry or domain.endswith("." + entry))) or (digits and "".join(ch for ch in entry if ch.isdigit()) == digits):
-            return
-    raise ChannelError("Recipient is not on ALLOWED_RECIPIENTS", code="recipient_not_allowed")
+    return any(
+        entry in (a, base) or (domain and (domain == entry or domain.endswith("." + entry))) or (digits and "".join(ch for ch in entry if ch.isdigit()) == digits)
+        for entry in get_settings().allowed_list
+    )
+
+
+def enforce_allowed(address: str) -> None:
+    if not is_allowed(address):
+        raise ChannelError("Recipient is not on ALLOWED_RECIPIENTS", code="recipient_not_allowed")
 
 
 def _maybe_fail(channel: str) -> None:

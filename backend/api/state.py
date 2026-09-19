@@ -3,14 +3,11 @@
 Timestamps are millisecond epochs on the demo clock. Reps only see the campaigns they work on.
 """
 
-import hashlib
-
 from fastapi import APIRouter, Depends
 
 from backend.core import clock
 from backend.core.db import Db
 from backend.core.security import User, current_user, db_dep
-from backend.policy import gate
 
 router = APIRouter()
 ms = clock.ms
@@ -102,7 +99,7 @@ def build_state(db: Db, user: User) -> dict:
     approvals = [
         {"id": a["id"], "kind": a["kind"], "cid": a["campaign_id"], "eid": a["enrollment_id"], "t": ms(a["created_at"]), "status": a["status"],
          "runId": a["run_id"], "msgId": a["msg_id"], "stepNo": a["step_no"], "blocked": a["blocked"], "by": a["decided_by"], "at": ms(a["decided_at"]),
-         "reason": a["reason"], "gate": _gate_for(db, a)}
+         "reason": a["reason"]}
         for a in db.q(f"select * from approvals {where('campaign_id')} order by created_at", vp)
     ]
     escal = [
@@ -152,17 +149,6 @@ def build_state(db: Db, user: User) -> dict:
         "conflicts": conflicts, "meetings": meetings, "calls": calls, "claims": claims, "suppress": suppress, "prompts": prompts, "kb": kb, "integ": integ,
         "hist": {},
     }
-
-
-def _gate_for(db: Db, a: dict) -> dict | None:
-    """The gate reasons shown beside an open approval. Decided approvals need none."""
-    if a["status"] != "open" or not a["msg_id"]:
-        return None
-    m = db.q1("select channel, is_reply, kind from messages where id = %s", (a["msg_id"],))
-    if not m:
-        return None
-    e = db.q1("select * from enrollments where id = %s", (a["enrollment_id"],))
-    return gate.evaluate(db, e, m["channel"], reply=m["is_reply"], pricing=m["kind"] == "pricing_answer")
 
 
 def _suppressed_ids(db: Db) -> set[str]:
@@ -218,29 +204,30 @@ def _kb(db: Db, vis: list[str] | None) -> dict:
 
 
 def signature(db: Db) -> str:
-    parts = [
-        db.q1("select coalesce(max(seq), 0) as v from activity")["v"],
-        db.q1("select count(*) as v from messages")["v"],
-        db.q1("select md5(coalesce(string_agg(id || status, ',' order by id), '')) as v from jobs")["v"],
-        db.q1("select md5(coalesce(string_agg(id || status, ',' order by id), '')) as v from approvals")["v"],
-        db.q1("select md5(coalesce(string_agg(id || status, ',' order by id), '')) as v from escalations")["v"],
-        db.q1("select md5(coalesce(string_agg(id || status || coalesce(winner, ''), ',' order by id), '')) as v from conflicts")["v"],
-        db.q1(
-            "select md5(coalesce(string_agg(id || status || version::text || paused_held::text, ',' order by id), '')) as v from campaigns"
-        )["v"],
-        db.q1("select md5(coalesce(string_agg(campaign_id || agent_key || enabled::text, ',' order by campaign_id, agent_key), '')) as v from campaign_agents")["v"],
-        db.q1("select md5(coalesce(string_agg(campaign_id || channel || enabled::text, ',' order by campaign_id, channel), '')) as v from channel_settings")["v"],
-        db.q1("select md5(coalesce(string_agg(id || status, ',' order by id), '')) as v from prompt_versions")["v"],
-        db.q1("select md5(coalesce(string_agg(id || active::text || rep_limit::text, ',' order by id), '')) as v from users")["v"],
-        db.q1("select md5(coalesce(string_agg(key || mode || paused::text || status, ',' order by key), '')) as v from integrations")["v"],
-        db.q1("select count(*) || '-' || coalesce(max(ingested_at)::text, '') as v from knowledge_documents")["v"],
-        db.q1("select count(*) as v from suppression_list")["v"],
-        db.q1("select count(*) as v from enrollments")["v"],
-        db.q1("select kill_switch::text || demo_clock_offset_hours::text as v from global_settings")["v"],
-        db.q1("select md5(coalesce(string_agg(id || state || coalesce(score, 0)::text, ',' order by id), '')) as v from enrollments")["v"],
-        db.q1("select md5(coalesce(string_agg(prospect_id || campaign_id, ',' order by prospect_id), '')) as v from contact_claims where status = 'active'")["v"],
-    ]
-    return hashlib.md5("|".join(str(p) for p in parts).encode()).hexdigest()
+    """A hash of everything the UI shows, in one round trip so the page can poll it cheaply."""
+    row = db.q1(
+        """select md5(concat_ws('|',
+            (select coalesce(max(seq), 0) from activity),
+            (select count(*) from messages),
+            (select md5(coalesce(string_agg(id || status, ',' order by id), '')) from jobs),
+            (select md5(coalesce(string_agg(id || status, ',' order by id), '')) from approvals),
+            (select md5(coalesce(string_agg(id || status, ',' order by id), '')) from escalations),
+            (select md5(coalesce(string_agg(id || status || coalesce(winner, ''), ',' order by id), '')) from conflicts),
+            (select md5(coalesce(string_agg(id || status || version::text || paused_held::text, ',' order by id), '')) from campaigns),
+            (select md5(coalesce(string_agg(campaign_id || agent_key || enabled::text, ',' order by campaign_id, agent_key), '')) from campaign_agents),
+            (select md5(coalesce(string_agg(campaign_id || channel || enabled::text, ',' order by campaign_id, channel), '')) from channel_settings),
+            (select md5(coalesce(string_agg(id || status, ',' order by id), '')) from prompt_versions),
+            (select md5(coalesce(string_agg(id || active::text || rep_limit::text, ',' order by id), '')) from users),
+            (select md5(coalesce(string_agg(key || mode || paused::text || status, ',' order by key), '')) from integrations),
+            (select count(*) || '-' || coalesce(max(ingested_at)::text, '') from knowledge_documents),
+            (select count(*) from suppression_list),
+            (select count(*) from enrollments),
+            (select kill_switch::text || demo_clock_offset_hours::text from global_settings),
+            (select md5(coalesce(string_agg(id || state || coalesce(score, 0)::text, ',' order by id), '')) from enrollments),
+            (select md5(coalesce(string_agg(prospect_id || campaign_id, ',' order by prospect_id), '')) from contact_claims where status = 'active')
+        )) as v"""
+    )
+    return row["v"]
 
 
 @router.get("/state")

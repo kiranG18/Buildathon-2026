@@ -72,12 +72,20 @@ def act(db: Db, e: dict | None, kind: str, text: str, *, cid: str | None = None,
     return aid
 
 
-def channel_mode(db: Db, ch: str) -> str:
+def channel_mode(db: Db, ch: str, prospect_id: str | None = None) -> str:
+    """Live needs a switched-on integration, a registered adapter and, for email and SMS, a recipient on ALLOWED_RECIPIENTS. Anything else is a recorded sandbox send."""
+    from backend.channels.adapters import is_allowed
     from backend.channels.base import REGISTRY
     from backend.orchestrator.defs import CH_INTEG
 
     row = db.q1("select mode from integrations where key = %s", (CH_INTEG.get(ch, ""),))
-    return "live" if row and row["mode"] == "live" and ch in REGISTRY else "sandbox"
+    if not (row and row["mode"] == "live" and ch in REGISTRY):
+        return "sandbox"
+    if prospect_id and ch in ("email", "sms"):
+        p = db.q1("select email, phone from prospects where id = %s", (prospect_id,))
+        if p and not is_allowed(p["email"] if ch == "email" else p["phone"]):
+            return "sandbox"
+    return "live"
 
 
 def mk_msg(db: Db, e: dict, ch: str, direction: str, body: str, *, segs: list | None = None, **x) -> dict:
@@ -87,7 +95,7 @@ def mk_msg(db: Db, e: dict, ch: str, direction: str, body: str, *, segs: list | 
     at = x.pop("at", None) or clock.now()
     cols = {
         "id": mid, "enrollment_id": e["id"], "prospect_id": e["prospect_id"], "campaign_id": e["campaign_id"], "channel": ch, "direction": direction,
-        "body": body, "segs": J(segs) if segs else None, "created_at": at, "mode": x.pop("mode", None) or channel_mode(db, ch), "status": x.pop("status", "sent"),
+        "body": body, "segs": J(segs) if segs else None, "created_at": at, "mode": x.pop("mode", None) or channel_mode(db, ch, e["prospect_id"]), "status": x.pop("status", "sent"),
     }
     cols.update(x)
     names = ", ".join(cols)
