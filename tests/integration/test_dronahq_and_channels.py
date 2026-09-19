@@ -138,6 +138,15 @@ def test_allowed_recipients_gate_every_adapter(seeded, monkeypatch):
             adapters.enforce_allowed(bad)
 
 
+def test_allowed_recipients_accept_plus_addresses_of_an_allowed_mailbox_only(seeded, monkeypatch):
+    monkeypatch.setattr(get_settings(), "allowed_recipients", "sandbox@gmail.com")
+    adapters.enforce_allowed("sandbox@gmail.com")
+    adapters.enforce_allowed("Sandbox+jane.doe@gmail.com")
+    for bad in ("other+sandbox@gmail.com", "sandbox@example.com", "sandbox+x@example.com"):
+        with pytest.raises(ChannelError):
+            adapters.enforce_allowed(bad)
+
+
 def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enrollment(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
     sent = {}

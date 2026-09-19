@@ -34,9 +34,10 @@ def enforce_allowed(address: str) -> None:
     """Refuse anything outside ALLOWED_RECIPIENTS. Entries are full addresses, domains or phone numbers."""
     a = address.strip().lower()
     domain = a.rsplit("@", 1)[-1] if "@" in a else ""
+    base = a.split("+", 1)[0] + "@" + domain if "+" in a.split("@", 1)[0] and domain else a
     digits = "".join(ch for ch in a if ch.isdigit())
     for entry in get_settings().allowed_list:
-        if entry == a or (domain and (domain == entry or domain.endswith("." + entry))) or (digits and "".join(ch for ch in entry if ch.isdigit()) == digits):
+        if entry in (a, base) or (domain and (domain == entry or domain.endswith("." + entry))) or (digits and "".join(ch for ch in entry if ch.isdigit()) == digits):
             return
     raise ChannelError("Recipient is not on ALLOWED_RECIPIENTS", code="recipient_not_allowed")
 
