@@ -1,7 +1,7 @@
 # Build status
 
 Last updated: Saturday 19 September 2026, 21:30 IST
-Current phase: P8 hardening, P9 documents. Waiting on manual actions MA-03, MA-06 and MA-07 (deploy), then MA-04, MA-05, MA-08, MA-09 and MA-11.
+Current phase: P8 hardening, P9 documents. Deployed on Railway (Southeast Asia) with Supabase (Mumbai). Waiting on MA-11 (DronaHQ), MA-04, MA-05, MA-08, MA-09 and MA-12.
 Deadline: Sunday 20 September 2026, 11:59 PM IST
 
 ## Phases

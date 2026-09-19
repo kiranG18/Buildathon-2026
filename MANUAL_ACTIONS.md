@@ -4,7 +4,7 @@ Claude Code appends to this file and prints a STOP block whenever it needs you. 
 
 Field names inside DronaHQ, Twilio, and Google screens can differ from the text below. Send Claude Code a screenshot of any screen that does not match.
 
-Status: MA-01, MA-02 and MA-10 are done. Do MA-03, MA-06 and MA-07 first: they give the project a public URL.
+Status: MA-01, MA-02, MA-03, MA-06, MA-07 and MA-10 are done. The app is live at https://buildathon-2026-production.up.railway.app. Still open: the uptime monitor in MA-06, then MA-11 (DronaHQ), MA-04 and MA-05 (keys), MA-08 and MA-09 (Gmail, Twilio), MA-12 (submission). Rotate the Supabase database password and update `DATABASE_URL` on Railway, because it was pasted into a chat.
 
 ## MA-01 Local tools (done)
 

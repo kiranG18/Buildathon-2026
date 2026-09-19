@@ -34,3 +34,18 @@ Results of the checks the plan schedules for the first hours. A check marked "no
 | Supabase direct host is IPv6 only | Railway could not reach `db.<ref>.supabase.co` (`Network is unreachable`) | Use the session pooler, `aws-0-<region>.pooler.supabase.com:5432`, user `postgres.<ref>` |
 | Seeding across regions is slow | The seed is one transaction of many small calls. From Railway in San Francisco to Supabase in Mumbai it did not finish in minutes, and a stale session held the truncate locks | Run `python scripts/bootstrap.py` once from a machine near the database, or host the web service in the database's region. A second run finds the workspace and starts at once |
 | An open seed session blocks every query | While a seed transaction is open, `select count(*) from campaigns` waits and hits the 5 s statement timeout | Wait for it to finish. Do not terminate sessions that look idle in transaction: the seed is working |
+
+## Smoke test of the live deployment (19 Sep 2026)
+
+Target: https://buildathon-2026-production.up.railway.app (Railway, Southeast Asia; Supabase, Mumbai; `LLM_MODE=fake`, `EMBEDDED_WORKER=true`).
+
+| Check | Result |
+| --- | --- |
+| `GET /health` | 200 |
+| `GET /` (UI) | 200 |
+| `GET /state` without a token | 401 `no_token` |
+| `POST /mcp` without the bearer token | 401 |
+| Login as `ava@helix.demo`, then `GET /state` | 4 campaigns: C1 to C3 live, C4 draft. Kill switch off |
+| Channel badges on seeded and new messages | all `sandbox` (no live adapter is configured) |
+| Worker advancing | queued jobs 8 to 4 and messages 123 to 128 in 45 seconds |
+| Error lines in the last 30 log lines | 0 |

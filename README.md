@@ -8,7 +8,7 @@ Built for the Tech Contingent x DronaHQ Inter Guild Buildathon 2026 (18 to 20 Se
 
 ## Live demo
 
-- App: the deployed URL is listed in the repository description and in `docs/submission.md`.
+- App: https://buildathon-2026-production.up.railway.app
 - Sign in with a demo chip on the login page, or use these demo-only accounts (password `helix-demo`): `admin@helix.demo`, `ava@helix.demo` (manager), `marcus@helix.demo` (rep).
 - Self-serve tour for judges: `docs/demo.md`, section "Judge card".
 
