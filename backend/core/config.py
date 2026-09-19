@@ -21,9 +21,15 @@ class Settings(BaseSettings):
     cors_origin_regex: str = r"https://([a-z0-9-]+\.)*dronahq\.com"
 
     llm_mode: str = "fake"
+    llm_provider: str = "anthropic"
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+    llm_model_strong: str = ""
+    llm_model_fast: str = ""
     llm_fallback_provider: str = ""
     llm_fallback_key: str = ""
+    llm_fallback_model: str = ""
     embeddings_api_key: str = ""
     fail_llm: str = ""
     fail_embeddings: bool = False

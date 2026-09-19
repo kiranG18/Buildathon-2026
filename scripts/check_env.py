@@ -16,7 +16,7 @@ def main() -> int:
         return 1
     rows = [
         ("Database", bool(s.database_url)),
-        ("Live LLM (Sonnet 5, Haiku 4.5)", s.llm_mode in ("live", "record") and bool(s.anthropic_api_key)),
+        (f"Live LLM ({s.llm_provider})", s.llm_mode in ("live", "record") and bool({"anthropic": s.anthropic_api_key, "gemini": s.gemini_api_key, "groq": s.groq_api_key}.get(s.llm_provider))),
         ("Hosted embeddings", bool(s.embeddings_api_key)),
         ("DronaHQ Researcher", bool(s.dronahq_researcher_webhook_url) and s.agent_provider_researcher == "dronahq"),
         ("DronaHQ Responder", bool(s.dronahq_responder_webhook_url) and s.agent_provider_responder == "dronahq"),

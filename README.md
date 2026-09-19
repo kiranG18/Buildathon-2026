@@ -77,8 +77,9 @@ Everything runs offline by default (`LLM_MODE=fake`): deterministic agents, a lo
 | `DEMO_MODE` | optional | Enables the reply simulator, clock and reset endpoints |
 | `EMBEDDED_WORKER` | optional | Run the worker inside the web process. Two services is the recommended shape |
 | `LLM_MODE` | optional | `fake` (offline), `live`, `record`, `replay` |
-| `ANTHROPIC_API_KEY` | live LLM | Sonnet 5 (`claude-sonnet-5`) and Haiku 4.5 (`claude-haiku-4-5-20251001`) |
-| `LLM_FALLBACK_PROVIDER`, `LLM_FALLBACK_KEY` | optional | Second provider after two timeouts |
+| `LLM_PROVIDER` | optional | `anthropic` (default), `gemini` or `groq`. The agents ask for a strong and a fast model by role and each provider maps them to its own ids (`LLM_MODEL_STRONG`, `LLM_MODEL_FAST` override) |
+| `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY` | live LLM | The key for the chosen provider. Anthropic uses Sonnet 5 (`claude-sonnet-5`) and Haiku 4.5 (`claude-haiku-4-5-20251001`) |
+| `LLM_FALLBACK_PROVIDER`, `LLM_FALLBACK_KEY`, `LLM_FALLBACK_MODEL` | optional | Second provider (`groq` or `openai`) after two failed attempts. Groq reads `GROQ_API_KEY` when no fallback key is set |
 | `EMBEDDINGS_API_KEY` | optional | Hosted embeddings (1536 dimensions). Without it a deterministic local embedder runs |
 | `DRONAHQ_RESEARCHER_WEBHOOK_URL`, `DRONAHQ_RESPONDER_WEBHOOK_URL`, `DRONAHQ_API_KEY` | DronaHQ | Webhook trigger URLs and the API key |
 | `DRONAHQ_VOICE_AGENT_ID`, `DRONAHQ_VOICE_CALL_URL` | DronaHQ voice | Voice agent and the call-start URL |

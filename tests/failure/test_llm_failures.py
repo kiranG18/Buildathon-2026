@@ -180,3 +180,50 @@ def test_r1_ten_retrieval_queries_land_the_expected_chunk_in_the_top_three(seede
             top = [h["id"] for h in retrieve.search(db, cid, q, None, 3, use_cache=False)]
             hits += want in top
     assert hits >= 8, hits
+
+
+class FakeHttpReply:
+    def __init__(self, body: dict):
+        self.body = body
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.body
+
+
+def test_gemini_provider_maps_the_model_role_asks_for_json_and_reads_usage(seeded, live, monkeypatch):
+    monkeypatch.setattr(get_settings(), "llm_provider", "gemini")
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "test-key")
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen.update(url=url, headers=headers, body=json)
+        return FakeHttpReply({"candidates": [{"content": {"parts": [{"text": VALID_QUAL}]}}], "usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 30}})
+
+    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    res = run()
+    assert res.provider == "gemini" and res.model == llm_client.GEMINI_FAST and (res.tokens_in, res.tokens_out) == (120, 30)
+    assert seen["url"].endswith(f"/models/{llm_client.GEMINI_FAST}:generateContent") and seen["headers"] == {"x-goog-api-key": "test-key"}
+    assert seen["body"]["generationConfig"]["responseMimeType"] == "application/json" and seen["body"]["systemInstruction"]["parts"][0]["text"] == "s"
+    strong = llm_client.resolve_model(llm_client.SONNET)
+    assert strong == llm_client.GEMINI_STRONG
+
+
+def test_groq_takes_over_when_the_primary_provider_has_no_key(seeded, live, monkeypatch):
+    monkeypatch.setattr(get_settings(), "llm_provider", "anthropic")
+    monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    monkeypatch.setattr(get_settings(), "llm_fallback_provider", "groq")
+    monkeypatch.setattr(get_settings(), "groq_api_key", "groq-key")
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen.update(url=url, headers=headers, body=json)
+        return FakeHttpReply({"choices": [{"message": {"content": VALID_QUAL}}], "usage": {"prompt_tokens": 90, "completion_tokens": 25}})
+
+    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_client.time, "sleep", lambda *_: None)
+    res = run()
+    assert res.provider == "fallback" and seen["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert seen["headers"] == {"Authorization": "Bearer groq-key"} and seen["body"]["model"] == llm_client.GROQ_STRONG and seen["body"]["response_format"] == {"type": "json_object"}

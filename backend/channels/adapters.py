@@ -228,7 +228,7 @@ def sync_integrations(db: Db) -> None:
         "voice": bool(s.dronahq_voice_agent_id and s.dronahq_voice_call_url),
         "agents": bool(s.dronahq_researcher_webhook_url or s.dronahq_responder_webhook_url),
         "embed": bool(s.embeddings_api_key),
-        "llm": bool(s.anthropic_api_key),
+        "llm": bool({"anthropic": s.anthropic_api_key, "gemini": s.gemini_api_key, "groq": s.groq_api_key}.get(s.llm_provider)),
         "linkedin": False,
     }
     follows_config = {"agents": can_live["agents"], "embed": can_live["embed"], "llm": can_live["llm"] and s.llm_mode == "live"}

@@ -22,7 +22,15 @@ from backend.core.logging import log
 HAIKU = "claude-haiku-4-5-20251001"
 SONNET = "claude-sonnet-5"
 # List prices in dollars per million tokens (input, output). Configuration, not measurement: cost per run uses real token counts.
-PRICES = {HAIKU: (1.0, 5.0), SONNET: (3.0, 15.0)}
+PRICES = {
+    HAIKU: (1.0, 5.0), SONNET: (3.0, 15.0),
+    "gemini-2.5-flash": (0.30, 2.50), "gemini-2.5-flash-lite": (0.10, 0.40),
+    "llama-3.3-70b-versatile": (0.59, 0.79), "llama-3.1-8b-instant": (0.05, 0.08),
+    "gpt-4o-mini": (0.15, 0.60),
+}
+GEMINI_STRONG, GEMINI_FAST = "gemini-2.5-flash", "gemini-2.5-flash-lite"
+GROQ_STRONG, GROQ_FAST = "llama-3.3-70b-versatile", "llama-3.1-8b-instant"
+OPENAI_COMPATIBLE = {"groq": "https://api.groq.com/openai/v1", "openai": "https://api.openai.com/v1"}
 TIMEOUT_S = 30
 RETRIES = 2
 REPLAY_FILE = Path(__file__).resolve().parents[1] / "seed" / "fixtures" / "agent_replays.json"
@@ -90,23 +98,76 @@ def _anthropic(model: str, system: str, user: str, temperature: float, max_token
         raise LLMUnavailable(f"{type(e).__name__}: {e}") from e
 
 
-def _fallback(system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
+def resolve_model(model: str) -> str:
+    """The callers name a Claude model by role. Another provider maps the strong and fast roles to its own model ids."""
     s = get_settings()
-    if s.llm_fallback_provider != "openai" or not s.llm_fallback_key:
-        raise LLMUnavailable("no fallback provider configured")
+    strong = model == SONNET
+    if s.llm_provider == "gemini":
+        return (s.llm_model_strong or GEMINI_STRONG) if strong else (s.llm_model_fast or GEMINI_FAST)
+    if s.llm_provider == "groq":
+        return (s.llm_model_strong or GROQ_STRONG) if strong else (s.llm_model_fast or GROQ_FAST)
+    return model
+
+
+def _gemini(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
+    key = get_settings().gemini_api_key
+    if not key:
+        raise LLMUnavailable("GEMINI_API_KEY is not set")
     try:
         r = httpx.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {s.llm_fallback_key}"},
-            json={"model": "gpt-4o-mini", "temperature": temperature, "max_tokens": max_tokens,
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            headers={"x-goog-api-key": key},
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens, "responseMimeType": "application/json"},
+            },
+            timeout=TIMEOUT_S,
+        )
+        r.raise_for_status()
+        j = r.json()
+        text = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
+        usage = j.get("usageMetadata", {})
+        return RawReply(text, usage.get("promptTokenCount", 0), usage.get("candidatesTokenCount", 0))
+    except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+        raise LLMUnavailable(f"gemini failed: {type(e).__name__}") from e
+
+
+def _openai_compatible(provider: str, key: str, model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
+    if not key:
+        raise LLMUnavailable(f"no key for {provider}")
+    try:
+        r = httpx.post(
+            f"{OPENAI_COMPATIBLE[provider]}/chat/completions",
+            headers={"Authorization": f"Bearer {key}"},
+            json={"model": model, "temperature": temperature, "max_tokens": max_tokens, "response_format": {"type": "json_object"},
                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
             timeout=TIMEOUT_S,
         )
         r.raise_for_status()
         j = r.json()
         return RawReply(j["choices"][0]["message"]["content"], j["usage"]["prompt_tokens"], j["usage"]["completion_tokens"])
-    except (httpx.HTTPError, KeyError, ValueError) as e:
-        raise LLMUnavailable(f"fallback failed: {e}") from e
+    except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+        raise LLMUnavailable(f"{provider} failed: {type(e).__name__}") from e
+
+
+def _primary(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
+    p = get_settings().llm_provider
+    if p == "gemini":
+        return _gemini(model, system, user, temperature, max_tokens)
+    if p == "groq":
+        return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
+    return _anthropic(model, system, user, temperature, max_tokens)
+
+
+def _fallback(system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
+    s = get_settings()
+    provider = s.llm_fallback_provider
+    if provider not in OPENAI_COMPATIBLE:
+        raise LLMUnavailable("no fallback provider configured")
+    key = s.llm_fallback_key or (s.groq_api_key if provider == "groq" else "")
+    model = s.llm_fallback_model or (GROQ_STRONG if provider == "groq" else "gpt-4o-mini")
+    return _openai_compatible(provider, key, model, system, user, temperature, max_tokens)
 
 
 def _call(model: str, system: str, user: str, temperature: float, max_tokens: int) -> tuple[RawReply, str]:
@@ -117,13 +178,14 @@ def _call(model: str, system: str, user: str, temperature: float, max_tokens: in
         try:
             if fail == "timeout":
                 raise LLMUnavailable("injected timeout")
+            provider = get_settings().llm_provider
             if fail == "garbage":
-                return RawReply("this is not json at all", 10, 5), "anthropic"
+                return RawReply("this is not json at all", 10, 5), provider
             if fail == "empty":
-                return RawReply("", 10, 0), "anthropic"
+                return RawReply("", 10, 0), provider
             if _transport is not None:
-                return _transport(model, system, user, temperature, max_tokens), "anthropic"
-            return _anthropic(model, system, user, temperature, max_tokens), "anthropic"
+                return _transport(model, system, user, temperature, max_tokens), provider
+            return _primary(model, system, user, temperature, max_tokens), provider
         except LLMUnavailable as e:
             last = e
             log().warning("llm attempt failed", extra={"event": "llm_retry", "status": str(attempt)})
@@ -163,6 +225,7 @@ def run(
         if rec is None:
             raise AgentFailure("no recorded output for this input", code="replay_miss")
         return LLMResult(schema.model_validate(rec["output"]), model, rec.get("tin", 0), rec.get("tout", 0), rec.get("cost", 0.0), 0.0, "replay", replay=True)
+    model = resolve_model(model)
     t0 = time.monotonic()
     raw, provider = _call(model, system, user, temperature, max_tokens)
     tin, tout = raw.tokens_in, raw.tokens_out
