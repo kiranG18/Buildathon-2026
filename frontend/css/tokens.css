@@ -1,0 +1,37 @@
+/* Design tokens extracted from frontend/prototype/cadence-prototype.html.
+   Every screen reads these variables. Change a value here and nowhere else. */
+:root {
+  /* surface and text */
+  --paper: #fff;
+  --cream: #f6f7ee;
+  --ink: #1f201d;
+  --ink2: #5d5e58;
+  --ink3: #8f9088;
+  --line: #e4e4e4;
+  --line2: #efefea;
+  --mist: #f5f5f5;
+  --dark: #1f1f1f;
+
+  /* state */
+  --live: #20744c;   --live-bg: #e6f2ea;
+  --pause: #9a5b00;  --pause-bg: #fcf0d6;
+  --kill: #c23a2e;   --kill-bg: #fdeae7;
+  --info: #2c5a86;   --info-bg: #e7eff7;
+  --warn: #8a6d00;   --warn-bg: #f8f1cc;
+
+  /* campaign identity */
+  --c1: #3b6c5b;  --c1b: #e3efe9;
+  --c2: #a9642a;  --c2b: #f6e9dc;
+  --c3: #565b96;  --c3b: #e8e9f6;
+  --c4: #75766f;  --c4b: #eeeeea;
+  --cx: #8b4b6b;  --cxb: #f5e6ee;
+
+  /* radius */
+  --r: 16px;
+  --r2: 12px;
+  --r3: 8px;
+
+  /* type */
+  --font: 'Onest', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
