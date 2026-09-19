@@ -212,6 +212,26 @@ def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enr
         REGISTRY.clear()
 
 
+def test_gmail_send_stores_the_message_id_gmail_assigned(seeded, monkeypatch):
+    monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "oauth2" in str(req.url):
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
+        if str(req.url).endswith("/messages/send"):
+            return httpx.Response(200, json={"id": "gm-9"})
+        assert req.url.path.endswith("/messages/gm-9") and req.url.params["format"] == "metadata"
+        return httpx.Response(200, json={"payload": {"headers": [{"name": "Message-ID", "value": "<CAassigned@mail.gmail.com>"}]}})
+
+    adapters.set_transport(httpx.MockTransport(handler))
+    try:
+        g = adapters.GmailAdapter("id", "secret", "refresh", "helix.sandbox@gmail.com")
+        res = g.send(OutboundMessage("M-9", "email", "helix.sandbox+dana.whitfield@gmail.com", "Hello", "Body"))
+        assert res.rfc_message_id == "<CAassigned@mail.gmail.com>"
+    finally:
+        adapters.set_transport(None)
+
+
 def test_gmail_poll_takes_a_reply_sent_from_the_sandbox_mailbox_and_skips_our_own_copy(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
     sender = "helix.sandbox@gmail.com"
@@ -222,6 +242,8 @@ def test_gmail_poll_takes_a_reply_sent_from_the_sandbox_mailbox_and_skips_our_ow
             return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
         if str(req.url).endswith("/messages/send"):
             return httpx.Response(200, json={"id": "gm-1"})
+        if "/messages/gm-1" in str(req.url):
+            return httpx.Response(404)
         if "/messages?" in str(req.url):
             queries.append(req.url.params["q"])
             return httpx.Response(200, json={"messages": [{"id": "own-copy"}, {"id": "reply-1"}]})

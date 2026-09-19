@@ -84,7 +84,19 @@ class GmailAdapter:
             r = c.post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", headers={"Authorization": f"Bearer {self._access_token()}"}, json={"raw": raw})
         if r.status_code >= 400:
             raise ChannelError(f"Gmail send failed: {r.status_code}", code="gmail_send")
-        return SendResult(external_id=r.json().get("id"), rfc_message_id=rfc_id)
+        gmail_id = r.json().get("id")
+        return SendResult(external_id=gmail_id, rfc_message_id=self._assigned_message_id(gmail_id) or rfc_id)
+
+    def _assigned_message_id(self, gmail_id: str | None) -> str | None:
+        """Gmail replaces the Message-ID we set, and replies quote its own, so read the one it assigned."""
+        if not gmail_id:
+            return None
+        with _client() as c:
+            r = c.get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{gmail_id}", headers={"Authorization": f"Bearer {self._access_token()}"},
+                      params={"format": "metadata", "metadataHeaders": "Message-ID"})
+        if r.status_code >= 400:
+            return None
+        return next((h["value"] for h in r.json().get("payload", {}).get("headers", []) if h["name"].lower() == "message-id"), None)
 
     def poll_inbound(self, since) -> list[dict]:
         after = int(since.timestamp()) if since else int(time.time()) - 3600
