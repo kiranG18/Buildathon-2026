@@ -20,6 +20,12 @@ def J(value: Any) -> Jsonb:
     return Jsonb(value)
 
 
+def _configure(conn) -> None:
+    """Every database call times out after 5 seconds. Set per session because Supabase's session pooler rejects startup options."""
+    conn.execute("set statement_timeout = 5000")
+    conn.commit()
+
+
 def pool() -> ConnectionPool:
     global _pool
     with _lock:
@@ -27,8 +33,9 @@ def pool() -> ConnectionPool:
             _pool = ConnectionPool(
                 get_settings().database_url,
                 min_size=1,
-                max_size=24,
-                kwargs={"row_factory": dict_row, "options": "-c statement_timeout=5000"},
+                max_size=12,
+                kwargs={"row_factory": dict_row, "autocommit": False},
+                configure=_configure,
                 open=False,
                 timeout=10,
             )
