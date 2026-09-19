@@ -64,7 +64,7 @@ The app refuses to start in production with the dev defaults.
 - [ ] OAuth consent screen: user type External, publishing status Testing, add the sandbox address as a test user.
 - [ ] Add scopes `https://www.googleapis.com/auth/gmail.send` and `https://www.googleapis.com/auth/gmail.readonly`.
 - [ ] Credentials: create an OAuth client of type Desktop app. Set `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
-- [ ] Get the refresh token (Claude Code writes `scripts/gmail_auth.py` when you reply "done MA-08 client") and set `GMAIL_REFRESH_TOKEN`.
+- [ ] Get the refresh token: run `GMAIL_CLIENT_ID=... GMAIL_CLIENT_SECRET=... python scripts/gmail_auth.py`, sign in as the sandbox account, and set the printed `GMAIL_REFRESH_TOKEN` on the host.
 - [ ] Testing-mode refresh tokens expire after 7 days. Repeat the last step on Sunday before judging.
 - [ ] SMTP fallback: turn on 2-step verification, create an app password, set `SMTP_HOST=smtp.gmail.com`, `SMTP_USER`, `SMTP_APP_PASSWORD`.
 - [ ] Set `CHANNEL_MODE_EMAIL=live` and `ALLOWED_RECIPIENTS` to the sandbox address or domain.
