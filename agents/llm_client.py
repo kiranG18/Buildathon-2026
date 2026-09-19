@@ -25,19 +25,25 @@ SONNET = "claude-sonnet-5"
 PRICES = {
     HAIKU: (1.0, 5.0), SONNET: (3.0, 15.0),
     "gemini-2.5-flash": (0.30, 2.50), "gemini-2.5-flash-lite": (0.10, 0.40),
-    "llama-3.3-70b-versatile": (0.59, 0.79), "llama-3.1-8b-instant": (0.05, 0.08),
+    "openai/gpt-oss-120b": (0.15, 0.75), "openai/gpt-oss-20b": (0.075, 0.30),
     "gpt-4o-mini": (0.15, 0.60),
 }
 GEMINI_STRONG, GEMINI_FAST = "gemini-2.5-flash", "gemini-2.5-flash-lite"
-GROQ_STRONG, GROQ_FAST = "llama-3.3-70b-versatile", "llama-3.1-8b-instant"
+GROQ_STRONG, GROQ_FAST = "openai/gpt-oss-120b", "openai/gpt-oss-20b"
 OPENAI_COMPATIBLE = {"groq": "https://api.groq.com/openai/v1", "openai": "https://api.openai.com/v1"}
 TIMEOUT_S = 30
 RETRIES = 2
+MAX_WAIT_S = 20.0
+RATE_LIMIT_WAITS = 5
 REPLAY_FILE = Path(__file__).resolve().parents[1] / "seed" / "fixtures" / "agent_replays.json"
 
 
 class LLMUnavailable(Exception):
-    """A transport-level failure: timeout, 429, 5xx or no key."""
+    """A transport-level failure: timeout, 429, 5xx or no key. retry_after is the wait in seconds a provider asked for."""
+
+    def __init__(self, message: str, retry_after: float = 0.0):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 @dataclass
@@ -136,17 +142,23 @@ def _gemini(model: str, system: str, user: str, temperature: float, max_tokens: 
 def _openai_compatible(provider: str, key: str, model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     if not key:
         raise LLMUnavailable(f"no key for {provider}")
+    body = {"model": model, "temperature": temperature, "max_tokens": max_tokens, "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+    if model.startswith("openai/gpt-oss"):
+        body["reasoning_effort"] = "low"
     try:
-        r = httpx.post(
-            f"{OPENAI_COMPATIBLE[provider]}/chat/completions",
-            headers={"Authorization": f"Bearer {key}"},
-            json={"model": model, "temperature": temperature, "max_tokens": max_tokens, "response_format": {"type": "json_object"},
-                  "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-            timeout=TIMEOUT_S,
-        )
+        r = httpx.post(f"{OPENAI_COMPATIBLE[provider]}/chat/completions", headers={"Authorization": f"Bearer {key}"}, json=body, timeout=TIMEOUT_S)
         r.raise_for_status()
         j = r.json()
         return RawReply(j["choices"][0]["message"]["content"], j["usage"]["prompt_tokens"], j["usage"]["completion_tokens"])
+    except httpx.HTTPStatusError as e:
+        wait = 0.0
+        if e.response.status_code == 429:
+            try:
+                wait = float(e.response.headers.get("retry-after", "2"))
+            except ValueError:
+                wait = 2.0
+        raise LLMUnavailable(f"{provider} failed: HTTP {e.response.status_code}", wait) from e
     except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
         raise LLMUnavailable(f"{provider} failed: {type(e).__name__}") from e
 
@@ -174,7 +186,9 @@ def _call(model: str, system: str, user: str, temperature: float, max_tokens: in
     """Primary provider with retries and backoff, then the fallback provider."""
     fail = get_settings().fail_llm
     last: Exception | None = None
-    for attempt in range(RETRIES + 1):
+    attempts_left, rate_waits_left, attempt = RETRIES + 1, RATE_LIMIT_WAITS, 0
+    while attempts_left > 0:
+        attempt += 1
         try:
             if fail == "timeout":
                 raise LLMUnavailable("injected timeout")
@@ -189,8 +203,12 @@ def _call(model: str, system: str, user: str, temperature: float, max_tokens: in
         except LLMUnavailable as e:
             last = e
             log().warning("llm attempt failed", extra={"event": "llm_retry", "status": str(attempt)})
-            if attempt < RETRIES:
-                time.sleep(0 if _transport is not None or fail else 0.5 * (2**attempt))
+            if e.retry_after and rate_waits_left > 0:
+                rate_waits_left -= 1
+            else:
+                attempts_left -= 1
+            if attempts_left > 0:
+                time.sleep(0 if _transport is not None or fail else min(MAX_WAIT_S, e.retry_after or 0.5 * (2 ** (attempt - 1))))
     try:
         return _fallback(system, user, temperature, max_tokens), "fallback"
     except LLMUnavailable as e:

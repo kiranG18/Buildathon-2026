@@ -227,3 +227,26 @@ def test_groq_takes_over_when_the_primary_provider_has_no_key(seeded, live, monk
     res = run()
     assert res.provider == "fallback" and seen["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert seen["headers"] == {"Authorization": "Bearer groq-key"} and seen["body"]["model"] == llm_client.GROQ_STRONG and seen["body"]["response_format"] == {"type": "json_object"}
+
+
+def test_a_429_with_retry_after_waits_that_long_and_does_not_use_up_an_attempt(seeded, live, monkeypatch):
+    monkeypatch.setattr(get_settings(), "llm_provider", "groq")
+    monkeypatch.setattr(get_settings(), "groq_api_key", "k")
+    waits, replies = [], []
+
+    class Limited(Exception):
+        pass
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        request = llm_client.httpx.Request("POST", url)
+        if len(replies) < 4:
+            replies.append(429)
+            raise llm_client.httpx.HTTPStatusError("limited", request=request, response=llm_client.httpx.Response(429, headers={"retry-after": "3"}, request=request))
+        replies.append(200)
+        assert json["reasoning_effort"] == "low" and json["model"] == llm_client.GROQ_FAST
+        return FakeHttpReply({"choices": [{"message": {"content": VALID_QUAL}}], "usage": {"prompt_tokens": 50, "completion_tokens": 20}})
+
+    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_client.time, "sleep", lambda s: waits.append(s))
+    res = run()
+    assert res.provider == "groq" and replies == [429, 429, 429, 429, 200] and waits == [3.0, 3.0, 3.0, 3.0]

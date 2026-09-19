@@ -108,7 +108,7 @@ def run(db: Db, campaign_id: str, role: str, version: int | None = None, record:
     passed = sum(1 for r in results if r["ok"])
     total = len(results)
     pct = round(100 * passed / total) if total else 0
-    method = "LLM judged" if runtime.live() else "rule-based, LLM_MODE=fake"
+    method = "live model output, exact match and grounding check" if runtime.live() else "rule-based, LLM_MODE=fake"
     if record:
         db.x("update prompt_versions set gold = %s where id = %s", (J([f"{passed} of {total} cases", f"{pct}%"]), pid))
         db.x("insert into eval_runs (campaign_id, agent_key, prompt_version_id, score, passed, total, detail, judge_notes) values (%s,%s,%s,%s,%s,%s,%s,%s)",
