@@ -145,6 +145,16 @@ def evaluate(db: Db, e: dict, ch: str, *, ack: bool = False, reply: bool = False
     return {"dec": state["dec"], "reason": state["reason"], "until": state["until"], "cks": cks}
 
 
+def lock_quota(db: Db, e: dict) -> None:
+    """Serialize the quota checks (checks 8 and 9) with the send that follows them, always in the order rep then campaign,
+    so parallel workers cannot each see room for the same last slot."""
+    c = campaign(db, e["campaign_id"])
+    rep = rep_for(db, e, c)
+    if rep["id"]:
+        db.lock("rep:" + rep["id"])
+    db.lock("cap:" + c["id"])
+
+
 def _rep_sent_today(db: Db, rep_id: str) -> int:
     day_start = clock.now().replace(hour=0, minute=0, second=0, microsecond=0)
     return db.q1(

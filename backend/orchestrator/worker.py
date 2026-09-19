@@ -52,8 +52,9 @@ class Worker:
                     continue
                 rows = db.q(
                     """select j.* from jobs j left join campaign_agents a on a.campaign_id = j.campaign_id and a.agent_key = j.agent
+                       left join enrollments e on e.id = j.enrollment_id
                        where j.campaign_id = %s and j.status = 'queued' and j.run_at <= %s and coalesce(a.enabled, true)
-                       order by j.run_at, j.created_at limit %s for update of j skip locked""",
+                       order by coalesce(e.score, 0) desc, j.run_at, j.created_at limit %s for update of j skip locked""",
                     (cid, now, room),
                 )
                 for j in rows:
@@ -114,10 +115,18 @@ class Worker:
                 handlers.scan_due(db, r["id"])
             _watchdogs(db)
 
+    def run_batch(self, jobs: list[dict]) -> None:
+        """One campaign's claimed jobs run in claim order (best ICP score first), so the scarce daily slots go to the best prospects."""
+        for j in jobs:
+            self.run_one(j)
+
     def tick(self) -> int:
         self.maintenance()
         jobs = self.claim()
-        futures = [self.pool.submit(self.run_one, j) for j in jobs]
+        by_campaign: dict[str, list[dict]] = {}
+        for j in jobs:
+            by_campaign.setdefault(j["campaign_id"], []).append(j)
+        futures = [self.pool.submit(self.run_batch, batch) for batch in by_campaign.values()]
         for f in futures:
             f.result()
         return len(jobs)

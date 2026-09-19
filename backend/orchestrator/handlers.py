@@ -246,6 +246,7 @@ def do_draft(db: Db, job: dict) -> None:
         return
     comp = d.comp
     gc = grounding.check(db, comp, p, c["id"])
+    gate.lock_quota(db, e)
     same_day = any(i != step_no and s["status"] == "done" and s["day"] == st["day"] for i, s in enumerate(plan))
     g = gate.evaluate(db, e, st["ch"], same_day=same_day)
     if g["dec"] == "replan":

@@ -70,7 +70,7 @@ def draft(db: Db, e: dict, p: dict, c: dict, kind: str, *, channel: str, version
 
     def template(facts_override: list | None = None) -> dict:
         pp = {**p, "facts": p["facts"] if facts_override is None else facts_override}
-        comp = templates.compose(kind, p=pp, tkey=key, rep_name=rep_name, ver=version, now_ms=now_ms, meeting=e.get("meeting"))
+        comp = templates.compose(kind, p=pp, tkey=key, rep_name=rep_name, ver=runtime.template_version(db, c["id"], version), now_ms=now_ms, meeting=e.get("meeting"))
         comp["allow_uncited_numbers"] = kind in NO_GROUND_KINDS
         return comp
 

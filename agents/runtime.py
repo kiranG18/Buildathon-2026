@@ -48,3 +48,10 @@ def gather(db: Db, campaign_id: str, query: str, specs: list[tuple[list[str], in
                 seen.add(hit["id"])
                 out.append(hit)
     return out
+
+
+def template_version(db: Db, campaign_id: str, prompt_version: int) -> int:
+    """Fake mode renders grounded templates only when the Writer prompt tells the agent to open with a sourced fact.
+    Judging the prompt text, not its number, keeps new campaigns (whose version 1 is the grounded harness) correct."""
+    row = db.q1("select lines from prompt_versions where campaign_id = %s and agent_key = 'Writer' and version = %s", (campaign_id, prompt_version))
+    return 2 if row and any("sourced fact" in line.lower() for line in row["lines"]) else 1

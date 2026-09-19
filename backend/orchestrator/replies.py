@@ -4,7 +4,7 @@ ingest_reply is the single inbound function: Gmail polling, the Twilio webhook, 
 Unsubscribe, out-of-office and bounce rules run before any model call.
 """
 
-from agents import responder, templates, writer
+from agents import responder, runtime, templates, writer
 from agents.util import f_d, f_dt, slots_for
 from backend.channels import base as channels
 from backend.conflicts.claims import cancel_pending_steps, release_claim, transfer_claim
@@ -155,7 +155,7 @@ def send_reply(db: Db, job: dict) -> None:
     key = tk(c)
     db.lock("prospect:" + p["id"])
     now_ms = clock.ms(clock.now())
-    comp = templates.compose(pl["compose"], p={**p, "facts": p["facts"]}, tkey=key, rep_name=rep["name"], ver=active_version(db, c["id"], "Writer"), now_ms=now_ms,
+    comp = templates.compose(pl["compose"], p={**p, "facts": p["facts"]}, tkey=key, rep_name=rep["name"], ver=runtime.template_version(db, c["id"], active_version(db, c["id"], "Writer")), now_ms=now_ms,
                              meeting=e["meeting"], wake_ms=clock.ms(e["wake"]) if e["wake"] else None)
     comp["allow_uncited_numbers"] = True
     ld = pl.get("llm_draft")
@@ -289,6 +289,7 @@ def approve_item(db: Db, approval_id: str, by: dict, edit: str | None = None) ->
     if edit and edit != m["body"]:
         db.x("update messages set body = %s, segs = null, edited = true where id = %s", (edit, m["id"]))
         m["body"], m["segs"] = edit, None
+    gate.lock_quota(db, e)
     g = gate.evaluate(db, e, m["channel"], approved=True, reply=m["is_reply"])
     if g["dec"] not in ("allow", "needs_approval"):
         return {"ok": False, "msg": f"Approval kept open. Guardian holds the send: {g['reason']}."}
