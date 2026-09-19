@@ -45,7 +45,7 @@ Agents never send anything. A send passes the ten ordered gate checks (kill swit
 
 | Component | What it does | What breaks without it |
 | --- | --- | --- |
-| Apps Studio app | Hosts the manager control plane, shared with Public Access | The workspace judges open |
+| Apps Studio app | Native sign in, Command Center, campaigns and campaign dashboard with pause and agent switches, plus the full workspace embedded (Vibe app 77710, source in `dronahq/app/`). Open it with a DronaHQ login. The public entry point for everyone else is the Railway link above | The manager view inside DronaHQ |
 | Researcher agent | Web search and enrichment, saves sourced facts through MCP | Research on DronaHQ (the direct provider takes over) |
 | Responder agent | Reads replies with MCP tools, classifies, drafts, books or escalates | Reply handling on DronaHQ (direct provider takes over) |
 | Voice agent | Places a real call with a briefing from our API | Live calls (a scripted outcome runs in sandbox) |

@@ -96,7 +96,9 @@ The instruction shells, schemas and app spec are already in `dronahq/` and `agen
 **MA-11a Workspace**
 - [ ] Create a workspace. Confirm Apps Studio, the Agentic platform and Voice are enabled. Send a screenshot of the credits meter.
 
-**MA-11b Apps Studio app**
+**MA-11b Apps Studio app (done, without Public Access)**
+
+Built through the Vibe MCP as app 77710 and published. Public Access needs a licence this workspace does not have, so the public entry point is the Railway link and the DronaHQ app link is extra evidence.
 - [ ] Create an app named `Cadence`. Add a REST connector `cadence_api` with base URL `${BASE_URL}` and header `Authorization: Bearer {{jwt}}`.
 - [ ] Turn on Public Access. Open the link in a private window and confirm it loads with no DronaHQ login.
 - [ ] Add a web or iframe component that embeds `${BASE_URL}/`. Report whether it renders. Then build the native screens from `dronahq/app-spec.md`.
