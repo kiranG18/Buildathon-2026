@@ -36,7 +36,8 @@ create table integrations (
   last_check timestamptz,
   err text,
   can_live boolean not null default true,
-  paused boolean not null default false
+  paused boolean not null default false,
+  fail_count int not null default 0
 );
 
 create table campaigns (

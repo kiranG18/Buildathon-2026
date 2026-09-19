@@ -277,12 +277,14 @@ def approve_item(db: Db, approval_id: str, by: dict, edit: str | None = None) ->
         from backend.orchestrator import voice
 
         sandbox = integ["mode"] != "live"
-        voice.place_call(db, e, sandbox=sandbox)
+        _, awaiting = voice.place_call(db, e, sandbox=sandbox)
+        if awaiting:
+            return {"ok": True, "msg": "Call placed (LIVE). The outcome arrives from DronaHQ Voice when the call ends."}
         e = enrollment(db, e["id"])
         if e["state"] != "meeting":
             slot = slots_for(clock.ms(now))[0]
             book_meeting(db, e, slot, "Caller")
-        return {"ok": True, "msg": f"Call placed ({'SANDBOX' if sandbox else 'LIVE'}). {p['first_name']} agreed to a meeting."}
+        return {"ok": True, "msg": f"Call placed (SANDBOX). {p['first_name']} agreed to a meeting."}
     m = db.q1("select * from messages where id = %s", (a["msg_id"],))
     if m["segs"] and any(s.get("src") == "?" for s in m["segs"]) and not (edit and edit != m["body"]):
         return {"ok": False, "msg": "The verifier blocked this draft. Edit the unsupported claim before you approve."}

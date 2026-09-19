@@ -184,8 +184,20 @@ def integ_test(key: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) ->
     row = db.q1("select * from integrations where key = %s", (key,))
     if not row:
         raise NotFound("Unknown integration")
-    db.x("update integrations set last_check = %s where key = %s", (clock.now(), key))
-    return {"ok": row["status"] == "ok", "error": row["err"]}
+    from backend.channels.base import REGISTRY
+
+    adapter = REGISTRY.get({"gmail": "email", "twilio": "sms"}.get(key, ""))
+    ok, err = row["status"] == "ok", row["err"]
+    if adapter is not None:
+        try:
+            adapter.test()
+            ok, err = True, None
+        except CadenceError as exc:
+            ok, err = False, exc.message
+    elif key in ("gmail", "twilio") and row["mode"] == "live":
+        ok, err = False, "No credentials are configured, so this channel cannot go live."
+    db.x("update integrations set last_check = %s, status = %s, err = %s where key = %s", (clock.now(), "ok" if ok else "error", err, key))
+    return {"ok": ok, "error": err}
 
 
 # --- demo tools -----------------------------------------------------------------------------------------------------------

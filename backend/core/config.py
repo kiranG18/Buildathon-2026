@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     dronahq_responder_webhook_url: str = ""
     dronahq_api_key: str = ""
     dronahq_voice_agent_id: str = ""
+    dronahq_voice_call_url: str = ""
     agent_provider_researcher: str = "direct"
     agent_provider_responder: str = "direct"
     agent_provider_caller: str = "direct"

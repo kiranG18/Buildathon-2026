@@ -42,7 +42,15 @@ class Reading:
 
 def read(db: Db, e: dict, p: dict, c: dict, text: str, version: int | None = None) -> Reading:
     ruled = templates.classify(text)
-    if not runtime.live() or ruled["cls"] in RULE_CLASSES:
+    if ruled["cls"] in RULE_CLASSES:
+        return Reading(ruled["cls"], ruled.get("sub"), ruled["rule"])
+    from backend.orchestrator import dronahq
+
+    if dronahq.enabled("Responder"):
+        hosted = dronahq.respond(db, e, p, c, text)
+        if hosted:
+            return hosted
+    if not runtime.live():
         return Reading(ruled["cls"], ruled.get("sub"), ruled["rule"])
     from agents.memory import build
 

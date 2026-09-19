@@ -24,7 +24,7 @@ DEMO_PASSWORD = "helix-demo"
 ROLE_OF = {"Researcher": "Researcher", "Qualifier": "Qualifier", "Sequencer": "Strategy", "Writer": "Writer", "Responder": "Responder", "Caller": "Caller"}
 PROVIDER = {"Researcher": "dronahq", "Responder": "dronahq", "Caller": "dronahq"}
 TABLES = (
-    "eval_runs eval_sets knowledge_chunks knowledge_documents suppression_list conflicts contact_claims calls meetings "
+    "research_callbacks eval_runs eval_sets knowledge_chunks knowledge_documents suppression_list conflicts contact_claims calls meetings "
     "escalations approvals activity messages agent_runs jobs enrollments prospects companies prompt_versions rep_assignments "
     "channel_settings campaign_agents campaign_versions campaigns integrations users"
 )

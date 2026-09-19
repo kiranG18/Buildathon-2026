@@ -12,13 +12,32 @@ from fastapi.staticfiles import StaticFiles
 from psycopg import OperationalError
 from psycopg import errors as pgerr
 
-from backend.api import auth, state
+from backend.api import (
+    analytics,
+    approvals,
+    auth,
+    campaigns,
+    channels,
+    controls,
+    knowledge,
+    prompts,
+    prospects,
+    public,
+    sources,
+    state,
+    voice,
+    workflow,
+)
+from backend.channels.adapters import register_configured
 from backend.core import logging as clog
 from backend.core.config import get_settings
 from backend.core.db import close_pool, pool, tx
 from backend.core.errors import CadenceError, GateBlocked
+from backend.mcp.server import McpGate
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
+ROUTERS = (auth, state, campaigns, prompts, prospects, workflow, approvals, controls, channels, voice, analytics, knowledge, public, sources)
+mcp_gate = McpGate()
 
 
 def envelope(code: str, message: str, status: int, extra: dict | None = None) -> JSONResponse:
@@ -33,6 +52,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     clog.setup(settings.log_level)
     pool()
+    register_configured()
+    await mcp_gate.start()
     worker = None
     if settings.embedded_worker:
         from backend.orchestrator.worker import start_embedded
@@ -41,6 +62,7 @@ async def lifespan(app: FastAPI):
     yield
     if worker:
         worker.stop()
+    await mcp_gate.stop()
     close_pool()
 
 
@@ -48,13 +70,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Cadence API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(GZipMiddleware, minimum_size=1024)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_list,
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
@@ -101,25 +117,13 @@ def create_app() -> FastAPI:
             db.q1("select 1 as ok")
         return {"status": "ok", "env": get_settings().app_env}
 
-    app.include_router(auth.router)
-    app.include_router(state.router)
-    _optional_routers(app)
+    for module in ROUTERS:
+        app.include_router(module.router)
+    for path in ("/mcp", "/mcp/"):
+        app.add_route(path, mcp_gate, methods=["GET", "POST", "DELETE"])
     if FRONTEND.exists():
         app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
     return app
-
-
-def _optional_routers(app: FastAPI) -> None:
-    import importlib
-
-    for name in ("campaigns", "prompts", "prospects", "workflow", "approvals", "controls", "channels", "voice", "analytics", "knowledge", "public", "sources"):
-        try:
-            mod = importlib.import_module(f"backend.api.{name}")
-        except ModuleNotFoundError as e:
-            if e.name != f"backend.api.{name}":
-                raise
-            continue
-        app.include_router(mod.router)
 
 
 app = create_app()

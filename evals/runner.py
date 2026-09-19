@@ -10,7 +10,7 @@ from pathlib import Path
 from agents import qualifier, responder, runtime, templates, writer
 from agents.util import slug
 from backend.core import clock
-from backend.core.db import J, Db
+from backend.core.db import Db, J
 from backend.core.errors import CadenceError
 from backend.orchestrator.defs import tk
 from backend.orchestrator.repo import campaign, enrollment, new_enrollment, prospect

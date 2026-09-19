@@ -10,9 +10,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+from backend.channels import inbound, linkedin_sandbox
 from backend.core import clock
 from backend.core.config import get_settings
 from backend.core.db import Db, tx
+from backend.core.errors import ChannelError
 from backend.core.logging import log
 from backend.orchestrator import handlers
 from backend.orchestrator.repo import act, campaign, enrollment
@@ -85,6 +87,8 @@ class Worker:
         msg = f"{type(exc).__name__}: {str(exc)[:240]}"
         try:
             with tx() as db:
+                if isinstance(exc, ChannelError) and exc.extra.get("channel"):
+                    self.count_channel_failure(db, exc.extra["channel"], str(exc))
                 attempts = job["attempts"]
                 if attempts < 3:
                     delay = RETRY_MINUTES[min(attempts - 1, len(RETRY_MINUTES) - 1)]
@@ -101,6 +105,16 @@ class Worker:
         except Exception:
             log().exception("could not record job failure", extra={"job_id": job["id"]})
 
+    @staticmethod
+    def count_channel_failure(db: Db, channel: str, message: str) -> None:
+        """Three consecutive send failures put the channel in error, which raises an alert on Command Center."""
+        from backend.channels.base import CH_KEY
+
+        row = db.q1("update integrations set fail_count = fail_count + 1 where key = %s returning fail_count, name", (CH_KEY[channel],))
+        if row and row["fail_count"] >= 3:
+            db.x("update integrations set status = 'error', err = %s, last_check = %s where key = %s", (message[:200], clock.now(), CH_KEY[channel]))
+            act(db, None, "channel", f"{row['name']} is degraded after {row['fail_count']} failed sends", agent="Guardian", reason_code="channel_degraded")
+
     # --- maintenance ------------------------------------------------------------------------------------------------------
 
     def maintenance(self) -> None:
@@ -114,6 +128,8 @@ class Worker:
                     continue
                 handlers.scan_due(db, r["id"])
             _watchdogs(db)
+            inbound.poll_all(db)
+            linkedin_sandbox.simulate_acceptance(db)
 
     def run_batch(self, jobs: list[dict]) -> None:
         """One campaign's claimed jobs run in claim order (best ICP score first), so the scarce daily slots go to the best prospects."""

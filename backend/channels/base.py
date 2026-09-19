@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from backend.core.db import Db
+from backend.core.errors import ChannelError
 
 
 @dataclass
@@ -40,6 +41,7 @@ class Channel(Protocol):
 
 
 REGISTRY: dict[str, Channel] = {}
+CH_KEY = {"email": "gmail", "sms": "twilio", "linkedin": "linkedin", "voice": "voice"}
 
 
 def register(channel: Channel) -> None:
@@ -54,5 +56,14 @@ def send_message(db: Db, msg: dict, p: dict) -> None:
     if adapter is None:
         return
     to = {"email": p["email"], "sms": p["phone"], "linkedin": p["linkedin_url"], "voice": p["phone"]}[msg["channel"]]
-    result = adapter.send(OutboundMessage(msg["id"], msg["channel"], to, msg["subject"], msg["body"]))
+    reply_to = None
+    if msg["channel"] == "email" and msg["is_reply"]:
+        last = db.q1("select rfc_message_id from messages where enrollment_id = %s and direction = 'in' and rfc_message_id is not null order by created_at desc limit 1", (msg["enrollment_id"],))
+        reply_to = last["rfc_message_id"] if last else None
+    try:
+        result = adapter.send(OutboundMessage(msg["id"], msg["channel"], to, msg["subject"], msg["body"], reply_to))
+    except ChannelError as exc:
+        exc.extra.setdefault("channel", msg["channel"])
+        raise
     db.x("update messages set external_id = %s, rfc_message_id = %s where id = %s", (result.external_id, result.rfc_message_id, msg["id"]))
+    db.x("update integrations set fail_count = 0 where key = %s", (CH_KEY[msg["channel"]],))
