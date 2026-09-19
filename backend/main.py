@@ -28,7 +28,7 @@ from backend.api import (
     voice,
     workflow,
 )
-from backend.channels.adapters import register_configured
+from backend.channels.adapters import register_configured, sync_integrations
 from backend.core import logging as clog
 from backend.core.config import get_settings
 from backend.core.db import close_pool, pool, tx
@@ -53,6 +53,8 @@ async def lifespan(app: FastAPI):
     clog.setup(settings.log_level)
     pool()
     register_configured()
+    with tx() as db:
+        sync_integrations(db)
     await mcp_gate.start()
     worker = None
     if settings.embedded_worker:

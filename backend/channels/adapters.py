@@ -15,7 +15,9 @@ from email.message import EmailMessage
 import httpx
 
 from backend.channels.base import REGISTRY, Capabilities, OutboundMessage, SendResult, register
+from backend.core import clock
 from backend.core.config import get_settings
+from backend.core.db import Db
 from backend.core.errors import ChannelError
 
 _transport: httpx.BaseTransport | None = None
@@ -194,3 +196,25 @@ def register_configured() -> list[str]:
     if s.twilio_account_sid and s.twilio_auth_token and s.twilio_from_number:
         register(TwilioAdapter(s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number))
     return sorted(REGISTRY)
+
+
+def sync_integrations(db: Db) -> None:
+    """Make the integration rows say what is actually configured. A service without credentials is sandbox only and never shows as live."""
+    s = get_settings()
+    can_live = {
+        "gmail": "email" in REGISTRY,
+        "twilio": "sms" in REGISTRY,
+        "voice": bool(s.dronahq_voice_agent_id and s.dronahq_voice_call_url),
+        "agents": bool(s.dronahq_researcher_webhook_url or s.dronahq_responder_webhook_url),
+        "embed": bool(s.embeddings_api_key),
+        "llm": bool(s.anthropic_api_key),
+        "linkedin": False,
+    }
+    follows_config = {"agents": can_live["agents"], "embed": can_live["embed"], "llm": can_live["llm"] and s.llm_mode == "live"}
+    for key, ok in can_live.items():
+        if not ok:
+            db.x("update integrations set can_live = false, mode = 'sandbox', status = 'ok', err = null, last_check = %s where key = %s", (clock.now(), key))
+        elif key in follows_config:
+            db.x("update integrations set can_live = true, mode = %s where key = %s", ("live" if follows_config[key] else "sandbox", key))
+        else:
+            db.x("update integrations set can_live = true where key = %s", (key,))

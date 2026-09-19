@@ -147,6 +147,32 @@ def test_allowed_recipients_accept_plus_addresses_of_an_allowed_mailbox_only(see
             adapters.enforce_allowed(bad)
 
 
+def test_integrations_show_only_what_is_configured(seeded, monkeypatch):
+    s = get_settings()
+    for name in ("gmail_client_id", "gmail_client_secret", "gmail_refresh_token", "gmail_sender", "smtp_host", "twilio_account_sid",
+                 "dronahq_researcher_webhook_url", "dronahq_responder_webhook_url", "dronahq_voice_agent_id", "embeddings_api_key", "anthropic_api_key"):
+        monkeypatch.setattr(s, name, "")
+    adapters.register_configured()
+    with scratch() as db:
+        adapters.sync_integrations(db)
+        rows = {r["key"]: r for r in db.q("select * from integrations")}
+        assert all(r["mode"] == "sandbox" and not r["can_live"] and r["status"] == "ok" and r["err"] is None for r in rows.values())
+
+        monkeypatch.setattr(s, "gmail_client_id", "id")
+        monkeypatch.setattr(s, "gmail_client_secret", "secret")
+        monkeypatch.setattr(s, "gmail_refresh_token", "token")
+        monkeypatch.setattr(s, "gmail_sender", "sandbox@gmail.com")
+        monkeypatch.setattr(s, "anthropic_api_key", "key")
+        monkeypatch.setattr(s, "llm_mode", "fake")
+        adapters.register_configured()
+        adapters.sync_integrations(db)
+        rows = {r["key"]: r for r in db.q("select * from integrations")}
+        assert rows["gmail"]["can_live"] and rows["gmail"]["mode"] == "sandbox"
+        assert rows["llm"]["can_live"] and rows["llm"]["mode"] == "sandbox"
+        assert not rows["twilio"]["can_live"] and not rows["agents"]["can_live"]
+    adapters.register_configured()
+
+
 def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enrollment(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
     sent = {}
