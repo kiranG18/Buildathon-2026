@@ -52,3 +52,25 @@ def test_migrations_create_required_indexes():
         idx = {r["indexname"] for r in db.q("select indexname from pg_indexes where schemaname = 'public'")}
     for name in ("prompt_one_active", "claims_one_active", "knowledge_chunks_hnsw", "knowledge_chunks_tsv"):
         assert name in idx
+
+
+def test_state_is_served_from_memory_until_something_changes(seeded, client, auth, monkeypatch):
+    from backend.api import state as state_api
+    from backend.core.db import tx
+
+    calls = []
+    real = state_api.build_state
+    monkeypatch.setattr(state_api, "build_state", lambda db, user: calls.append(1) or real(db, user))
+    state_api._cache.clear()
+    first = client.get("/state", headers=auth()).json()
+    second = client.get("/state", headers=auth()).json()
+    assert len(calls) == 1 and second["camps"] == first["camps"] and second["now"] >= first["now"]
+    with tx() as db:
+        db.x("update campaigns set version = version + 1 where id = 'C4'")
+    try:
+        client.get("/state", headers=auth())
+        assert len(calls) == 2
+    finally:
+        with tx() as db:
+            db.x("update campaigns set version = version - 1 where id = 'C4'")
+        state_api._cache.clear()

@@ -24,6 +24,15 @@ Status: MA-01, MA-02, MA-03, MA-06, MA-07 and MA-10 are done. The app is live at
 - [ ] Project settings, Database, Connection string: copy the **Direct connection** string, or the **Session pooler** string (port 5432). Skip the Transaction pooler (port 6543).
 - [ ] Set it as `DATABASE_URL` on Railway. The web service migrates and seeds an empty database on first start.
 
+## MA-03b Move the database next to the app (optional, makes every page load fast)
+
+Railway runs in Singapore and the first Supabase project is in Mumbai, so each query costs 80 to 150 ms and a rebuilt `/state` takes about 2 s. A database in Singapore brings a query down to a few ms. It also gives a fresh password, which the first one needs because it was pasted into a chat.
+
+- [ ] Supabase: new project `cadence-sg`, region Southeast Asia (Singapore), a letters-and-digits password.
+- [ ] SQL editor: `create extension if not exists vector;`
+- [ ] Connect, Session pooler: copy the string, put the password in it.
+- [ ] `! railway variables set --skip-deploys DATABASE_URL="<string>"`, then `! railway up --detach`. The new service migrates and seeds the empty database by itself, in the same region, so it is quick.
+
 ## MA-04 Anthropic key (blocks real-model runs)
 
 - [ ] console.anthropic.com, API keys: create `cadence-dev`. Set a monthly spend limit first.

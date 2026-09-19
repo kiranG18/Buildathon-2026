@@ -3,6 +3,8 @@
 Timestamps are millisecond epochs on the demo clock. Reps only see the campaigns they work on.
 """
 
+import time
+
 from fastapi import APIRouter, Depends
 
 from backend.core import clock
@@ -224,15 +226,30 @@ def signature(db: Db) -> str:
             (select count(*) from enrollments),
             (select kill_switch::text || demo_clock_offset_hours::text from global_settings),
             (select md5(coalesce(string_agg(id || state || coalesce(score, 0)::text, ',' order by id), '')) from enrollments),
-            (select md5(coalesce(string_agg(prospect_id || campaign_id, ',' order by prospect_id), '')) from contact_claims where status = 'active')
+            (select md5(coalesce(string_agg(prospect_id || campaign_id, ',' order by prospect_id), '')) from contact_claims where status = 'active'),
+            (select count(*) from meetings),
+            (select count(*) || '-' || coalesce(max(disposition), '') from calls),
+            (select count(*) from prospects),
+            (select md5(coalesce(string_agg(campaign_id || rep_id || active::text, ',' order by campaign_id, rep_id), '')) from rep_assignments)
         )) as v"""
     )
     return row["v"]
 
 
+_cache: dict[str, tuple[str, float, dict]] = {}
+CACHE_MAX_AGE_S = 10.0
+
+
 @router.get("/state")
 def get_state(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
-    return build_state(db, user)
+    """Rebuilding takes two dozen queries, so an unchanged workspace is served from memory after one cheap signature query."""
+    sig = signature(db)
+    hit = _cache.get(user["id"])
+    if hit and hit[0] == sig and time.monotonic() - hit[1] < CACHE_MAX_AGE_S:
+        return {**hit[2], "now": ms(clock.now())}
+    out = build_state(db, user)
+    _cache[user["id"]] = (sig, time.monotonic(), out)
+    return out
 
 
 @router.get("/state/sig")
