@@ -68,6 +68,7 @@
     "/state": {
       "get": {
         "summary": "Get State",
+        "description": "Rebuilding takes two dozen queries, so an unchanged workspace is served from memory after one cheap signature query.",
         "operationId": "get_state_state_get",
         "parameters": [
           {
@@ -2610,6 +2611,64 @@
                     "additionalProperties": true
                   },
                   "title": "Response List Approvals Approvals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{aid}/gate": {
+      "get": {
+        "summary": "Approval Gate",
+        "description": "The Guardian's checks for one open approval, fetched when someone opens it so /state stays cheap.",
+        "operationId": "approval_gate_approvals__aid__gate_get",
+        "parameters": [
+          {
+            "name": "aid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Aid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Approval Gate Approvals  Aid  Gate Get"
                 }
               }
             }

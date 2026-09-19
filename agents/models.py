@@ -1,8 +1,9 @@
 """Pydantic output models for the six agents. Their JSON Schemas are exported to agents/schemas/ for DronaHQ Structured Output."""
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Channel = Literal["email", "linkedin", "sms", "voice"]
 
@@ -81,6 +82,18 @@ class ResponderResult(BaseModel):
     escalation_reason: str | None = None
     summary_update: str = ""
     confidence: float = Field(default=0.8, ge=0, le=1)
+
+    @field_validator("claims", mode="before")
+    @classmethod
+    def claims_from_strings(cls, value):
+        """DronaHQ's Structured Output form cannot nest objects in a list, so its agent may send "source_id::statement" strings."""
+        out = []
+        for item in value or []:
+            if isinstance(item, str):
+                source_id, _, text = item.partition("::")
+                item = {"text": text.strip(), "source_id": source_id.strip(), "source_type": "prospect_fact" if re.fullmatch(r"F\d+", source_id.strip()) else "knowledge"}
+            out.append(item)
+        return out
 
 
 class CallOutcome(BaseModel):

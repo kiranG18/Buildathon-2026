@@ -109,3 +109,11 @@ def test_check10_approval_rules(seeded):
         assert result(db, e, approved=True)[0] == "allow"
         db.x("update campaigns set appr = '{\"first\": false, \"voice\": true, \"reply\": false}' where id = 'C1'")
         assert result(db, e, ch="voice")[0] in ("needs_approval", "replan", "defer")
+
+
+def test_responder_claims_accept_dronahq_string_items():
+    from agents.models import ResponderResult
+
+    r = ResponderResult.model_validate({"classification": "question", "next_action": "reply", "claims": ["F20125::Tessellate raised a Series B", "K-88::We integrate with Salesforce", {"text": "x", "source_type": "knowledge", "source_id": "K-1"}]})
+    assert [(c.source_type, c.source_id) for c in r.claims] == [("prospect_fact", "F20125"), ("knowledge", "K-88"), ("knowledge", "K-1")]
+    assert r.claims[0].text == "Tessellate raised a Series B"
