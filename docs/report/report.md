@@ -61,7 +61,7 @@ Every campaign has a system prompt and per-role prompts with versions. Activatin
 
 | Component | Role | What breaks without it |
 | --- | --- | --- |
-| Apps Studio app | The manager's workspace, shared with Public Access | The workspace judges open |
+| Apps Studio app (Vibe app 77710) | Native sign in, Command Center with Stop all, campaign list with pause and resume, campaign dashboard with funnel and a switch per agent, plus the full workspace embedded. It calls our API directly with the signed-in user's token | The manager view inside DronaHQ. The hosted site stays the public entry point, because Public Access needs a licence this workspace lacks |
 | Researcher agent | Web search and enrichment, saves sourced facts through our MCP tool | Research on DronaHQ. The direct provider takes over in one deploy |
 | Responder agent | Reads replies with MCP tools | Reply handling on DronaHQ. The direct provider takes over |
 | Voice agent | One real call with a briefing fetched from our API | Live calls. A scripted outcome runs through the same path |
@@ -70,7 +70,7 @@ Our own code holds the state machine, gate, conflict engine, RAG, channels, MCP 
 
 ## 5. Stack
 
-Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full-text search, Claude Sonnet 5 and Haiku 4.5 behind one `LLMClient`, a hosted embeddings API with a deterministic local fallback, the Python MCP SDK, Gmail API and Twilio adapters, a static UI (vanilla JavaScript, Onest and IBM Plex Mono self-hosted) with no bundler, Docker, GitHub Actions (ruff, pytest, secret scan), Railway and Supabase for hosting.
+Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full-text search, one `LLMClient` that supports Anthropic (Sonnet 5, Haiku 4.5), Gemini and Groq with a second-provider fallback, a deterministic local embedder (a hosted embeddings API is optional), the Python MCP SDK, Gmail API and Twilio adapters, a static UI (vanilla JavaScript, Onest and IBM Plex Mono self-hosted) with no bundler, Docker, GitHub Actions (ruff, pytest, secret scan), and Railway (Singapore) with Supabase Postgres (Mumbai) for hosting. Row level security is on for every table, and the state endpoint is served from memory until the data changes.
 
 ## 6. What works, what is partial, what is skipped
 
@@ -87,10 +87,13 @@ Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full
 | Rep assignment and offboarding | Working | Lists affected campaigns, defers with `no_rep_available` until reassigned |
 | Approvals, escalations, human takeover | Working | |
 | Analytics: cost per prospect, per qualified lead, per conversation | Working | Estimated costs in offline mode |
-| Email live path (Gmail API, SMTP fallback) | Built, waits for credentials | Tested against a mock transport. Sandbox until connected |
-| SMS live path (Twilio) | Built, waits for credentials | Signature check tested |
-| Voice live path | Built, waits for DronaHQ Voice | Briefing and outcome webhooks tested. Scripted outcome otherwise |
-| DronaHQ Researcher, Responder, Voice, Apps Studio app | Code built, hosted configuration pending | Instruction shells, schemas and steps are in `dronahq/` |
+| Live deployment | Working | Railway and Supabase, seeded demo, worker running. Smoke test in `docs/spikes.md` |
+| Email live path (Gmail API) | Working | Proven end to end on the live site: a discovered prospect got a real email, a reply was matched to the enrollment, classified and answered with meeting slots. Only `ALLOWED_RECIPIENTS` can receive real mail |
+| SMS live path (Twilio) | Partial | Connected and the connection test passes. The first real text to a phone was rejected with a 400 and is untested. Sandbox otherwise |
+| Voice live path | Built, waits for a DronaHQ Voice agent | Briefing and outcome webhooks tested. Scripted outcome otherwise |
+| Apps Studio app | Working | Native screens tested in a browser against the live API. Not public, see limitations |
+| DronaHQ Researcher and Responder agents | In progress | Instruction shells, schemas and steps are in `dronahq/`. They run on the direct provider until the hosted agents are switched on |
+| Model providers | Working | Anthropic, Gemini and Groq behind one client, with retries, a repair pass and a fallback. Tested with scripted replies. Real-model results are pending a key |
 | LinkedIn | Sandbox by design | Terms of service |
 | Prompt-change approval workflow, real calendar booking | Skipped | Stretch items |
 
@@ -99,6 +102,10 @@ Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full
 - **Offline agents.** With `LLM_MODE=fake` the agents are deterministic and their token and cost figures are list-price estimates per agent, not measurements. Live mode records real usage.
 - **Golden sets are small.** Fifteen seeded cases per agent (five per campaign for the Qualifier and Writer), scored by exact match and the grounding check. In offline mode the Writer's grounded output depends on the prompt text. The scores are evidence that the runner and the versions work, not production accuracy.
 - **Fictional data.** Prospects, companies and customer stories are invented. Every seeded row carries a `DEMO` chip and its `is_seed` flag. Seeded messages are labelled SANDBOX because nothing was sent.
+- **Cross-region database.** The app runs in Singapore and the database in Mumbai, so each query costs about 80 to 150 ms. The state endpoint was cut from 168 queries to 24 and is cached until the data changes, which took a page load from about 14 seconds to under one. Moving the database next to the app would cut it further.
+- **DronaHQ Public Access.** Making the Apps Studio app public needs a licence this workspace does not have, so reviewers use the hosted site and a DronaHQ login is needed for the app.
+- **Twilio trial.** A trial account texts verified numbers only, and texting an Indian number from a US trial number may be blocked. The channel falls back to sandbox.
+- **Model prices.** The cost table for Gemini and Groq holds list prices entered by hand. Token counts are measured, prices should be checked against the providers' pages.
 - **Mock calendar.** Meetings book against a mock rep calendar.
 - **Demo clock.** The clock offset compresses waiting time. It moves every due time consistently, and real time keeps running.
 - **Replan count.** The plan expected nine replans when LinkedIn is paused on C1. The seeded data yields eight, and the docs say eight.
