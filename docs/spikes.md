@@ -84,3 +84,19 @@ Target: https://buildathon-2026-production.up.railway.app (Railway, Southeast As
 | Direct calls | The app calls the API from the browser with a bearer token. `backend/main.py` allows origins matching `https://*.dronahq.com` and refuses everything else (`test_se6_cors_allows_only_the_configured_origin`) |
 | Not verified | Whether DronaHQ's runtime allows the app's outbound `fetch` and the framing of the hosted site. This needs a look at the published link in a browser |
 | Public access | `vibe_set_access(isPublic: true)` failed with "Secure embed license required". Public embedding of a Vibe app needs a licence the workspace does not have. The app is published but not public, so reviewers cannot open it without a DronaHQ login. The hosted site is the public entry point, and a recording and screenshots show the DronaHQ app |
+
+## First live-model golden run on Groq (20 Sep 2026)
+
+Model: `openai/gpt-oss-120b` (strong role) and `openai/gpt-oss-20b` (fast role) on a free Groq key, through `agents/llm_client.py` with the deterministic mode off. Each case is a real model call. The run was rate-limited, so the Writer numbers below are not a measure of the prompt.
+
+| Role | v1 | v2 | Note |
+| --- | --- | --- | --- |
+| Responder (C1, C2, C3) | 80%, 87%, 87% | 93%, 87%, 93% | Exact match on the expected classification, 15 cases each |
+| Qualifier (C1, C2, C3) | 80%, 60%, 60% | 60%, 80%, 100% | 5 cases each, so one case moves a score by 20 points |
+| Writer (C1, C2, C3) | 20%, 0%, 0% | 20%, 20%, 0% | Invalid: Groq's free tier allows about 8,000 tokens a minute and one Writer call uses about 2,100, so most calls returned 429 and the Writer fell back to its generic-safe draft |
+
+Findings:
+- Run alone, the Writer produces grounded drafts. Five cases in a row showed two grounded drafts, one draft rejected by the grounding check for an invented number (`207`), which is the check doing its job, and two rate-limit failures.
+- The client now waits as long as `Retry-After` asks and asks gpt-oss for low reasoning effort. A second full run with that pacing was started and stopped by the system on low memory, so a clean live Writer score does not exist yet.
+- Cost per call was tiny (about $0.00008 for a small classification call at list prices). The prices in the code are unverified.
+- The scores in the deck and the Prompts screen come from the deterministic mode until a clean live run exists.
