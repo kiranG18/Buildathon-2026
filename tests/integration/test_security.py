@@ -46,6 +46,10 @@ def test_se6_cors_allows_only_the_configured_origin(seeded, client):
     bad = client.options("/state", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert ok.headers.get("access-control-allow-origin") == "http://localhost:8000"
     assert "access-control-allow-origin" not in bad.headers
+    for allowed in ("https://studio.dronahq.com", "https://apps.dronahq.com"):
+        assert client.options("/state", headers={"Origin": allowed, "Access-Control-Request-Method": "GET"}).headers.get("access-control-allow-origin") == allowed
+    for refused in ("https://dronahq.com.evil.example", "http://studio.dronahq.com", "https://evildronahq.com"):
+        assert "access-control-allow-origin" not in client.options("/state", headers={"Origin": refused, "Access-Control-Request-Method": "GET"}).headers
 
 
 def test_se7_logs_carry_ids_but_no_email_addresses_or_message_bodies(seeded, client, auth, caplog):

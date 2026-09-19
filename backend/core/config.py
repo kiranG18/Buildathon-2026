@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     webhook_shared_secret: str = DEV_SECRET
     mcp_token: str = DEV_SECRET
     cors_origins: str = "http://localhost:8000"
+    cors_origin_regex: str = r"https://([a-z0-9-]+\.)*dronahq\.com"
 
     llm_mode: str = "fake"
     anthropic_api_key: str = ""

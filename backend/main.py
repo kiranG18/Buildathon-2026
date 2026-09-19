@@ -72,7 +72,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Cadence API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(GZipMiddleware, minimum_size=1024)
-    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_list, allow_origin_regex=settings.cors_origin_regex, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
