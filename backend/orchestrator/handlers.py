@@ -20,7 +20,7 @@ from backend.core.config import get_settings
 from backend.core.db import Db, J
 from backend.core.errors import ChannelError
 from backend.orchestrator import defs
-from backend.orchestrator.defs import CH_INTEG, CH_NAME, KB_ICP, KB_ICP2, MIN, H, tk
+from backend.orchestrator.defs import CH_INTEG, CH_NAME, FIRST_TOUCH_DELAY_MS, KB_ICP, KB_ICP2, H, tk
 from backend.orchestrator.repo import (
     act,
     active_version,
@@ -152,7 +152,7 @@ def do_plan(db: Db, job: dict) -> None:
     c = campaign(db, e["campaign_id"])
     now = clock.ms(clock.now())
     allowed = allowed_channels(db, e, c)
-    t0 = clock.ms(e["first_due"]) if e["first_due"] else now + MIN
+    t0 = clock.ms(e["first_due"]) if e["first_due"] else now + FIRST_TOUCH_DELAY_MS
     _sleep_latency()
     out = seq.build_plan(db, e, p, c, allowed, t0)
     save_enr(db, e, plan=out.steps)

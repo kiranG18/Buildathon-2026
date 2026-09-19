@@ -1,0 +1,66 @@
+{
+  "description": "The model judges each criterion. Code turns the judgements into a score and a decision.",
+  "properties": {
+    "criteria": {
+      "items": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "met": {
+            "enum": [
+              "yes",
+              "partial",
+              "no",
+              "unknown"
+            ],
+            "title": "Met",
+            "type": "string"
+          },
+          "evidence_fact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence Fact Id"
+          }
+        },
+        "required": [
+          "name",
+          "met"
+        ],
+        "title": "CriterionJudgment",
+        "type": "object"
+      },
+      "title": "Criteria",
+      "type": "array"
+    },
+    "reasons": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "missing_info": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Info",
+      "type": "array"
+    }
+  },
+  "required": [
+    "criteria"
+  ],
+  "title": "QualifierResult",
+  "type": "object"
+}

@@ -1,0 +1,73 @@
+{
+  "properties": {
+    "transcript": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Transcript",
+      "type": "array"
+    },
+    "recording_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recording Url"
+    },
+    "disposition": {
+      "enum": [
+        "connected_interested",
+        "callback",
+        "not_interested",
+        "voicemail",
+        "wrong_number",
+        "escalate"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "objections": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Objections",
+      "type": "array"
+    },
+    "next_step": {
+      "default": "",
+      "title": "Next Step",
+      "type": "string"
+    },
+    "booked_slot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Booked Slot"
+    },
+    "structured_answers": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Structured Answers",
+      "type": "object"
+    }
+  },
+  "required": [
+    "disposition"
+  ],
+  "title": "CallOutcome",
+  "type": "object"
+}

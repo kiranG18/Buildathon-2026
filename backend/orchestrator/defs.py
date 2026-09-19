@@ -8,6 +8,7 @@ H = 3600 * 1000
 D = 24 * H
 MIN = 60 * 1000
 
+FIRST_TOUCH_DELAY_MS = 20 * 1000
 CHANNELS = ("email", "linkedin", "sms", "voice")
 CH_NAME = {"email": "Email", "linkedin": "LinkedIn", "sms": "SMS", "voice": "Voice"}
 CH_INTEG = {"email": "gmail", "linkedin": "linkedin", "sms": "twilio", "voice": "voice"}

@@ -1,0 +1,85 @@
+{
+  "properties": {
+    "channel": {
+      "default": "email",
+      "enum": [
+        "email",
+        "linkedin",
+        "sms",
+        "voice"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "subject": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subject"
+    },
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "claims": {
+      "default": [],
+      "items": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "prospect_fact",
+              "knowledge"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "source_type",
+          "source_id"
+        ],
+        "title": "Claim",
+        "type": "object"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "cta": {
+      "default": "",
+      "title": "Cta",
+      "type": "string"
+    },
+    "omitted_personalisation_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Omitted Personalisation Reason"
+    }
+  },
+  "required": [
+    "body"
+  ],
+  "title": "Draft",
+  "type": "object"
+}

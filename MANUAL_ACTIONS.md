@@ -4,112 +4,112 @@ Claude Code appends to this file and prints a STOP block whenever it needs you. 
 
 Field names inside DronaHQ, Twilio, and Google screens can differ from the text below. Send Claude Code a screenshot of any screen that does not match.
 
-## MA-01 Local tools (blocks P1)
+Status: MA-01, MA-02 and MA-10 are done. Do MA-03, MA-06 and MA-07 first: they give the project a public URL.
 
-- [ ] Install Python 3.12, Node 20 or newer, Docker Desktop, git, and the GitHub CLI.
-- [ ] Install Claude Code, run `claude` in the repo folder, and sign in.
+## MA-01 Local tools (done)
 
-## MA-02 GitHub repo (blocks P1)
+- [x] Python 3.12, Node 22, Docker Desktop and git are installed. Postgres with pgvector runs in Docker on port 5433.
+- [ ] Optional: install the GitHub CLI (`gh`) for pull requests. Pushes already work through the stored git credentials.
 
-- [ ] Create a public repo named `cadence` and add both teammates as collaborators.
-- [ ] Settings, Branches: protect `main`, require one pull request approval and passing checks.
-- [ ] Each teammate clones the repo and makes at least one commit in P1.
+## MA-02 GitHub repo (done for the code, optional for the team)
 
-## MA-03 Supabase project (blocks P1 production deploy)
+- [x] `https://github.com/kiranG18/Buildathon-2026` exists and receives pushes from this machine.
+- [ ] Add teammates as collaborators and let each one make a commit, so the history shows every author.
+- [ ] Settings, Branches: protect `main` and require the CI checks.
+
+## MA-03 Supabase project (blocks the production deploy)
 
 - [ ] Create a project named `cadence` in the South Asia (Mumbai) region.
 - [ ] SQL editor: run `create extension if not exists vector;`
 - [ ] Project settings, Database, Connection string: copy the **Direct connection** string, or the **Session pooler** string (port 5432). Skip the Transaction pooler (port 6543).
-- [ ] Set `DATABASE_URL` locally and on the host.
+- [ ] Set it as `DATABASE_URL` on Railway. The web service migrates and seeds an empty database on first start.
 
-## MA-04 Anthropic key (blocks P3 real-model tests)
+## MA-04 Anthropic key (blocks real-model runs)
 
-- [ ] console.anthropic.com, API keys: create `cadence-dev`.
-- [ ] Set a monthly spend limit before you use it.
-- [ ] Set `ANTHROPIC_API_KEY`. Models in use: `claude-sonnet-5` and `claude-haiku-4-5-20251001`.
+- [ ] console.anthropic.com, API keys: create `cadence-dev`. Set a monthly spend limit first.
+- [ ] Set `ANTHROPIC_API_KEY`, then `LLM_MODE=live`. Models: `claude-sonnet-5` and `claude-haiku-4-5-20251001`.
 
-## MA-05 Embeddings key (blocks P3 RAG tests against the real API)
+## MA-05 Embeddings key (blocks real embeddings)
 
-- [ ] Create an API key with an embeddings provider. Default model: `text-embedding-3-small`, 1536 dimensions.
-- [ ] Set `EMBEDDINGS_API_KEY` and a spend limit.
+- [ ] Create an API key with an embeddings provider (default model `text-embedding-3-small`, 1536 dimensions) with a spend limit.
+- [ ] Set `EMBEDDINGS_API_KEY`. Without it the deterministic local embedder runs.
 
-## MA-06 Hosting on Railway (blocks P1 deploy)
+## MA-06 Hosting on Railway (blocks the public URL)
 
-- [ ] Create a Railway project from the GitHub repo. Choose a paid plan so the services never sleep.
+- [ ] Create a Railway project from the GitHub repo. Choose a plan that never sleeps.
 - [ ] Create two services from the same Dockerfile:
-  - `web`, start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-  - `worker`, start command: `python -m backend.worker`
-- [ ] Generate a public domain for `web`. Set it as `BASE_URL`.
-- [ ] Copy every variable from `.env.example` into both services.
-- [ ] Add an uptime monitor (any free monitor) on `${BASE_URL}/health`, one-minute interval, alert to your phone.
+  - `web`: the image default start command
+  - `worker`: start command `python -m backend.worker`
+  - Or one service with `EMBEDDED_WORKER=true`.
+- [ ] Generate a public domain for `web` and set it as `BASE_URL`. Set `CORS_ORIGINS` to the same URL and `APP_ENV=production`.
+- [ ] Copy every variable you need from `.env.example` into both services. Set `DEMO_MODE=true` for the judged deployment.
+- [ ] Add an uptime monitor on `${BASE_URL}/health`, one-minute interval, alert to your phone.
 
-## MA-07 Secrets (blocks P1)
+## MA-07 Secrets (blocks the production deploy)
 
-- [ ] Run each command once and store the output in the shared password vault.
+- [ ] Generate three values, store them in a password vault, and set them on both services:
 
 ```
-openssl rand -hex 32   # JWT_SECRET
-openssl rand -hex 32   # WEBHOOK_SHARED_SECRET
-openssl rand -hex 32   # MCP_TOKEN
+python -c "import secrets; print(secrets.token_hex(32))"   # JWT_SECRET
+python -c "import secrets; print(secrets.token_hex(32))"   # WEBHOOK_SHARED_SECRET
+python -c "import secrets; print(secrets.token_hex(32))"   # MCP_TOKEN
 ```
 
-## MA-08 Gmail sandbox account and OAuth (blocks P5 email)
+The app refuses to start in production with the dev defaults.
+
+## MA-08 Gmail sandbox account and OAuth (blocks live email)
 
 - [ ] Create a dedicated Gmail account for the demo. Set `GMAIL_SENDER` and `SEED_INBOX_BASE` to its address.
 - [ ] Google Cloud console: create project `cadence-sandbox`, enable the Gmail API.
 - [ ] OAuth consent screen: user type External, publishing status Testing, add the sandbox address as a test user.
 - [ ] Add scopes `https://www.googleapis.com/auth/gmail.send` and `https://www.googleapis.com/auth/gmail.readonly`.
 - [ ] Credentials: create an OAuth client of type Desktop app. Set `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`.
-- [ ] Run `python scripts/gmail_auth.py` (Claude Code writes it), approve access in the browser, and set `GMAIL_REFRESH_TOKEN`.
+- [ ] Get the refresh token (Claude Code writes `scripts/gmail_auth.py` when you reply "done MA-08 client") and set `GMAIL_REFRESH_TOKEN`.
 - [ ] Testing-mode refresh tokens expire after 7 days. Repeat the last step on Sunday before judging.
-- [ ] Set the SMTP fallback: turn on 2-step verification, create an app password, set `SMTP_HOST=smtp.gmail.com`, `SMTP_USER`, `SMTP_APP_PASSWORD`.
+- [ ] SMTP fallback: turn on 2-step verification, create an app password, set `SMTP_HOST=smtp.gmail.com`, `SMTP_USER`, `SMTP_APP_PASSWORD`.
+- [ ] Set `CHANNEL_MODE_EMAIL=live` and `ALLOWED_RECIPIENTS` to the sandbox address or domain.
 
-## MA-09 Twilio (blocks P5 SMS)
+## MA-09 Twilio (blocks live SMS)
 
 - [ ] Create a trial account and get a trial number. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
-- [ ] Console, Phone Numbers, Verified Caller IDs: verify 1 or 2 team phones.
+- [ ] Console, Phone Numbers, Verified Caller IDs: verify one or two team phones.
 - [ ] Set the number's inbound SMS webhook to `${BASE_URL}/webhooks/twilio/sms`, method HTTP POST.
-- [ ] Set `ALLOWED_RECIPIENTS` to the team inbox domain and the verified phone numbers, comma separated.
+- [ ] Add the verified phone numbers to `ALLOWED_RECIPIENTS`, and set `CHANNEL_MODE_SMS=live`.
 
-## MA-10 Source files (blocks P0)
+## MA-10 Source files (done)
 
-- [ ] Copy the problem statement PDF to `docs/problem-statement.pdf` and the plan to `docs/execution-plan.md`.
-- [ ] Keep the prototype at `frontend/prototype/cadence-prototype.html`. It is the UI reference, so no separate design files are needed.
+- [x] `docs/problem-statement.pdf`, `docs/execution-plan.md` and `frontend/prototype/cadence-prototype.html` are in the repo.
 
-## MA-11 DronaHQ (blocks P6). Claude Code prints the exact values when P6 starts.
+## MA-11 DronaHQ (blocks the hosted agents and Apps Studio). Do these in order and reply "done MA-11a" after each one.
 
-Do these in order. Reply "done MA-11a" after each one.
+The instruction shells, schemas and app spec are already in `dronahq/` and `agents/schemas/`.
 
-**MA-11a Spike and workspace**
-- [ ] Create a workspace. Confirm Apps Studio, the Agentic platform, and Voice are enabled. Send a screenshot of the credits meter.
+**MA-11a Workspace**
+- [ ] Create a workspace. Confirm Apps Studio, the Agentic platform and Voice are enabled. Send a screenshot of the credits meter.
 
 **MA-11b Apps Studio app**
-- [ ] Create an app named `Cadence`.
-- [ ] Add a REST connector named `cadence_api`. Base URL: `${BASE_URL}`. Header: `Authorization: Bearer {{jwt}}`, where `jwt` is an app variable filled after `POST /auth/login`.
+- [ ] Create an app named `Cadence`. Add a REST connector `cadence_api` with base URL `${BASE_URL}` and header `Authorization: Bearer {{jwt}}`.
 - [ ] Turn on Public Access. Open the link in a private window and confirm it loads with no DronaHQ login.
-- [ ] Allow the app to embed `${BASE_URL}/` in a web or iframe component. Report whether it renders.
+- [ ] Add a web or iframe component that embeds `${BASE_URL}/`. Report whether it renders. Then build the native screens from `dronahq/app-spec.md`.
 
 **MA-11c Researcher agent**
-- [ ] Create an agent named `Cadence Researcher`. Add variables `campaign_system_prompt`, `agent_prompt`, `context`, `output_schema`.
-- [ ] Paste the instructions from `dronahq/agents/researcher.md` (Claude Code writes it).
-- [ ] Turn on Structured Output and paste `agents/schemas/researcher.json`.
-- [ ] Add tools: Web Search, URL Parser, and a REST tool `enrich` at `${BASE_URL}/tools/enrich` with header `X-Cadence-Secret: ${WEBHOOK_SHARED_SECRET}`.
-- [ ] Add an MCP server: URL `${BASE_URL}/mcp`, transport Streamable HTTP, header `Authorization: Bearer ${MCP_TOKEN}`.
-- [ ] Add a Webhook trigger. Set `DRONAHQ_RESEARCHER_WEBHOOK_URL` to its URL. Report whether it answers synchronously and the payload limit.
+- [ ] Create `Cadence Researcher` with variables `campaign_system_prompt`, `agent_prompt`, `context`, `output_schema`. Paste the shell from `dronahq/agents/researcher.md` and the schema `agents/schemas/researcher.json` into Structured Output.
+- [ ] Add tools: Web Search, URL Parser, a REST tool `enrich` at `${BASE_URL}/tools/enrich` with header `X-Cadence-Secret: <WEBHOOK_SHARED_SECRET>`, and an MCP server `${BASE_URL}/mcp` (Streamable HTTP, header `Authorization: Bearer <MCP_TOKEN>`).
+- [ ] Add a Webhook trigger. Set `DRONAHQ_RESEARCHER_WEBHOOK_URL` and `AGENT_PROVIDER_RESEARCHER=dronahq`. Report whether it answers synchronously and its payload limit.
 
 **MA-11d Responder agent**
-- [ ] Repeat MA-11c with the name `Cadence Responder`, instructions from `dronahq/agents/responder.md`, schema `agents/schemas/responder.json`, and the MCP server only. Set `DRONAHQ_RESPONDER_WEBHOOK_URL`.
+- [ ] Repeat MA-11c as `Cadence Responder` with `dronahq/agents/responder.md`, `agents/schemas/responder.json` and the MCP server only. Set `DRONAHQ_RESPONDER_WEBHOOK_URL` and `AGENT_PROVIDER_RESPONDER=dronahq`.
 
 **MA-11e Voice agent**
-- [ ] Create a Voice Agent named `Cadence Caller` with the script in `dronahq/agents/caller.md`.
-- [ ] Pre-call webhook: GET `${BASE_URL}/voice/briefing/{enrollment_id}` with header `X-Cadence-Secret: ${WEBHOOK_SHARED_SECRET}`.
-- [ ] Post-call webhook: POST `${BASE_URL}/voice/outcome` with the same header.
-- [ ] Place one test call to a verified team phone. Report whether both webhooks fired. Set `DRONAHQ_VOICE_AGENT_ID`.
+- [ ] Create a Voice Agent `Cadence Caller` with the script in `dronahq/agents/caller.md`.
+- [ ] Pre-call webhook: GET `${BASE_URL}/voice/briefing/{enrollment_id}` with header `X-Cadence-Secret`. Post-call webhook: POST `${BASE_URL}/voice/outcome` with the same header.
+- [ ] Place one test call to a verified team phone. Report whether both webhooks fired and the URL and body of the call-start API. Set `DRONAHQ_VOICE_AGENT_ID`, `DRONAHQ_VOICE_CALL_URL` and `CHANNEL_MODE_VOICE=live`.
 
 **MA-11f Evidence**
-- [ ] Save screenshots of each agent's instructions, tools, and trace to `dronahq/screenshots/` and commit them.
+- [ ] Save screenshots of each agent's instructions, tools and trace to `dronahq/screenshots/` and commit them.
 
 ## MA-12 Final submission (blocks P9)
 
-- [ ] Read the submission portal form. Record extra fields, file limits, and any earlier cut-off in `docs/submission.md`.
+- [ ] Read the submission portal form. Record extra fields, file limits and any earlier cut-off in `docs/submission.md`.
+- [ ] Record a backup video from the final build.
 - [ ] Submit by 11:00 PM Sunday. Post the social message that tags DronaHQ. Save the confirmation screenshot.

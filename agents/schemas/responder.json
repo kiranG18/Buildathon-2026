@@ -1,0 +1,128 @@
+{
+  "properties": {
+    "classification": {
+      "enum": [
+        "interested",
+        "meeting_request",
+        "objection",
+        "question",
+        "not_now",
+        "not_interested",
+        "unsubscribe",
+        "out_of_office",
+        "wrong_person",
+        "other"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "sentiment": {
+      "default": "neutral",
+      "enum": [
+        "positive",
+        "neutral",
+        "negative"
+      ],
+      "title": "Sentiment",
+      "type": "string"
+    },
+    "objection_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Objection Type"
+    },
+    "next_action": {
+      "enum": [
+        "reply",
+        "book_meeting",
+        "escalate",
+        "nurture",
+        "stop"
+      ],
+      "title": "Next Action",
+      "type": "string"
+    },
+    "reply_draft": {
+      "default": "",
+      "title": "Reply Draft",
+      "type": "string"
+    },
+    "claims": {
+      "default": [],
+      "items": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "prospect_fact",
+              "knowledge"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "source_type",
+          "source_id"
+        ],
+        "title": "Claim",
+        "type": "object"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "slots_offered": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Slots Offered",
+      "type": "array"
+    },
+    "escalation_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Escalation Reason"
+    },
+    "summary_update": {
+      "default": "",
+      "title": "Summary Update",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 0.8,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    }
+  },
+  "required": [
+    "classification",
+    "next_action"
+  ],
+  "title": "ResponderResult",
+  "type": "object"
+}

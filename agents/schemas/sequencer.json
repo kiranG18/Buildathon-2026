@@ -1,0 +1,65 @@
+{
+  "properties": {
+    "steps": {
+      "items": {
+        "properties": {
+          "day": {
+            "maximum": 30,
+            "minimum": 0,
+            "title": "Day",
+            "type": "integer"
+          },
+          "channel": {
+            "enum": [
+              "email",
+              "linkedin",
+              "sms",
+              "voice"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "intro",
+              "connect",
+              "message",
+              "value_add",
+              "nudge",
+              "breakup",
+              "call_offer",
+              "meeting_ask",
+              "sms"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "channel",
+          "purpose",
+          "rationale"
+        ],
+        "title": "PlanStep",
+        "type": "object"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "title": "SequencerResult",
+  "type": "object"
+}

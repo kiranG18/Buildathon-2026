@@ -1,0 +1,88 @@
+{
+  "properties": {
+    "facts": {
+      "default": [],
+      "items": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "category": {
+            "default": "company",
+            "title": "Category",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Confidence",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "statement",
+          "source_url",
+          "confidence"
+        ],
+        "title": "Fact",
+        "type": "object"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "trigger_events": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Trigger Events",
+      "type": "array"
+    },
+    "pain_hypotheses": {
+      "default": [],
+      "items": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "supporting_fact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Supporting Fact Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "PainHypothesis",
+        "type": "object"
+      },
+      "title": "Pain Hypotheses",
+      "type": "array"
+    },
+    "gaps": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Gaps",
+      "type": "array"
+    }
+  },
+  "title": "ResearchResult",
+  "type": "object"
+}
