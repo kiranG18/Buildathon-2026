@@ -33,7 +33,14 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     clog.setup(settings.log_level)
     pool()
+    worker = None
+    if settings.embedded_worker:
+        from backend.orchestrator.worker import start_embedded
+
+        worker = start_embedded()
     yield
+    if worker:
+        worker.stop()
     close_pool()
 
 
@@ -105,7 +112,7 @@ def create_app() -> FastAPI:
 def _optional_routers(app: FastAPI) -> None:
     import importlib
 
-    for name in ("campaigns", "prompts", "prospects", "workflow", "approvals", "controls", "channels", "voice", "analytics", "knowledge", "demo", "sources"):
+    for name in ("campaigns", "prompts", "prospects", "workflow", "approvals", "controls", "channels", "voice", "analytics", "knowledge", "public", "sources"):
         try:
             mod = importlib.import_module(f"backend.api.{name}")
         except ModuleNotFoundError as e:

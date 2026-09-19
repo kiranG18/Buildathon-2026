@@ -1,0 +1,287 @@
+[
+ {
+  "cid": "C1",
+  "staff": 320,
+  "stage": "Series C",
+  "region": "US",
+  "ind": "Fintech infrastructure SaaS",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "careers",
+    "High"
+   ],
+   [
+    "docs",
+    "High"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C1",
+  "staff": 210,
+  "stage": "Series B",
+  "region": "US",
+  "ind": "HR-tech SaaS",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "careers",
+    "High"
+   ],
+   [
+    "blog",
+    "Medium"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C1",
+  "staff": 30,
+  "stage": "Seed",
+  "region": "US",
+  "ind": "Developer tools",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": null,
+  "expect": "reject"
+ },
+ {
+  "cid": "C1",
+  "staff": 260,
+  "stage": "Series B",
+  "region": "INTL",
+  "ind": "Logistics SaaS",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "careers",
+    "High"
+   ]
+  ],
+  "rej": "Headquartered outside the US (Toronto)",
+  "expect": "reject"
+ },
+ {
+  "cid": "C1",
+  "staff": 90,
+  "stage": "Series B",
+  "region": "US",
+  "ind": "Health-tech SaaS",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": null,
+  "expect": "borderline"
+ },
+ {
+  "cid": "C2",
+  "staff": 3400,
+  "stage": "Listed",
+  "region": "IN",
+  "ind": "NBFC",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "rbi",
+    "High"
+   ],
+   [
+    "news",
+    "Medium"
+   ],
+   [
+    "annual",
+    "Medium"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C2",
+  "staff": 5200,
+  "stage": "Listed",
+  "region": "IN",
+  "ind": "Insurer",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "rbi",
+    "High"
+   ],
+   [
+    "news",
+    "Medium"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C2",
+  "staff": 420,
+  "stage": "Private",
+  "region": "IN",
+  "ind": "NBFC",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": "Under 1,000 staff (420)",
+  "expect": "reject"
+ },
+ {
+  "cid": "C2",
+  "staff": 3000,
+  "stage": "Private",
+  "region": "IN",
+  "ind": "Retail software",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": "Not a regulated entity",
+  "expect": "reject"
+ },
+ {
+  "cid": "C2",
+  "staff": 1500,
+  "stage": "Private",
+  "region": "IN",
+  "ind": "Payments firm",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": null,
+  "expect": "borderline"
+ },
+ {
+  "cid": "C3",
+  "staff": 28,
+  "stage": "Seed",
+  "region": "US",
+  "ind": "Call-QA startup",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "product",
+    "High"
+   ],
+   [
+    "careers",
+    "High"
+   ],
+   [
+    "linkedin",
+    "Medium"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C3",
+  "staff": 32,
+  "stage": "Series A",
+  "region": "US",
+  "ind": "Support voice agents",
+  "facts": [
+   [
+    "about",
+    "High"
+   ],
+   [
+    "product",
+    "High"
+   ],
+   [
+    "linkedin",
+    "Medium"
+   ]
+  ],
+  "rej": null,
+  "expect": "qualify"
+ },
+ {
+  "cid": "C3",
+  "staff": 620,
+  "stage": "Series D",
+  "region": "US",
+  "ind": "Speech recognition",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": "Series C or later",
+  "expect": "reject"
+ },
+ {
+  "cid": "C3",
+  "staff": 22,
+  "stage": "Seed",
+  "region": "US",
+  "ind": "Accounting software",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": "Not voice related",
+  "expect": "reject"
+ },
+ {
+  "cid": "C3",
+  "staff": 120,
+  "stage": "Series B",
+  "region": "US",
+  "ind": "Voice-agent SaaS",
+  "facts": [
+   [
+    "about",
+    "High"
+   ]
+  ],
+  "rej": null,
+  "expect": "borderline"
+ }
+]

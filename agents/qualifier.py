@@ -46,13 +46,21 @@ def decide(sc: int, thr: int, no_facts: bool) -> str:
     return "borderline" if sc < thr else "qualify"
 
 
-def judge(db: Db, e: dict, p: dict, c: dict) -> Judgement:
+def strict_prompt(lines: list[str]) -> bool:
+    """Fake mode judges unknown facts as unknown only when the Qualifier prompt says so. A prompt that treats them as neutral inflates scores."""
+    return any("as unknown" in line.lower() for line in lines)
+
+
+def judge(db: Db, e: dict, p: dict, c: dict, version: int | None = None) -> Judgement:
     key = tk(c)
+    b = runtime.bundle(db, c["id"], "Qualifier", version)
     if not runtime.live():
-        return Judgement(templates.crit_for(p, key), chunks=[KB_ICP[key], KB_ICP2[key]] if key in KB_ICP else [])
+        crit = templates.crit_for(p, key)
+        if not strict_prompt(b.agent):
+            crit = [{**x, "st": "part" if x["st"] == "unk" else x["st"]} for x in crit]
+        return Judgement(crit, chunks=[KB_ICP[key], KB_ICP2[key]] if key in KB_ICP else [], prompt_version=b.agent_version)
     from agents.memory import build
 
-    b = runtime.bundle(db, c["id"], "Qualifier")
     hits = runtime.gather(db, c["id"], runtime.plan_query(p, "ideal customer profile qualification"), [(["icp"], 2), (["playbook"], 1)])
     labels = static()["CRIT"][key]
     schema = QualifierResult.model_json_schema()

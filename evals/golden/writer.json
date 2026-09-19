@@ -1,0 +1,242 @@
+[
+ {
+  "cid": "C1",
+  "kind": "intro",
+  "company": "Acme Labs",
+  "facts": [
+   [
+    "careers",
+    "Acme Labs posted three platform-engineer roles this month.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Labs has 240 staff and a Series B round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C1",
+  "kind": "connect",
+  "company": "Acme Labs",
+  "facts": [
+   [
+    "careers",
+    "Acme Labs posted three platform-engineer roles this month.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Labs has 240 staff and a Series B round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C1",
+  "kind": "nudge",
+  "company": "Acme Labs",
+  "facts": [
+   [
+    "careers",
+    "Acme Labs posted three platform-engineer roles this month.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Labs has 240 staff and a Series B round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C1",
+  "kind": "breakup",
+  "company": "Acme Labs",
+  "facts": [
+   [
+    "careers",
+    "Acme Labs posted three platform-engineer roles this month.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Labs has 240 staff and a Series B round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C1",
+  "kind": "intro",
+  "company": "Acme Labs",
+  "facts": [
+   [
+    "about",
+    "Acme Labs has 240 staff and a Series B round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C2",
+  "kind": "intro",
+  "company": "Acme Finance",
+  "facts": [
+   [
+    "news",
+    "Acme Finance announced a digital transformation programme in Q2 2026.",
+    "Medium"
+   ],
+   [
+    "about",
+    "Acme Finance has about 3,100 staff and operates as a nbfc.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C2",
+  "kind": "connect",
+  "company": "Acme Finance",
+  "facts": [
+   [
+    "news",
+    "Acme Finance announced a digital transformation programme in Q2 2026.",
+    "Medium"
+   ],
+   [
+    "about",
+    "Acme Finance has about 3,100 staff and operates as a nbfc.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C2",
+  "kind": "message",
+  "company": "Acme Finance",
+  "facts": [
+   [
+    "news",
+    "Acme Finance announced a digital transformation programme in Q2 2026.",
+    "Medium"
+   ],
+   [
+    "about",
+    "Acme Finance has about 3,100 staff and operates as a nbfc.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C2",
+  "kind": "call_offer",
+  "company": "Acme Finance",
+  "facts": [
+   [
+    "news",
+    "Acme Finance announced a digital transformation programme in Q2 2026.",
+    "Medium"
+   ],
+   [
+    "about",
+    "Acme Finance has about 3,100 staff and operates as a nbfc.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C2",
+  "kind": "intro",
+  "company": "Acme Finance",
+  "facts": [
+   [
+    "about",
+    "Acme Finance has about 3,100 staff and operates as a nbfc.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C3",
+  "kind": "intro",
+  "company": "Acme Voice",
+  "facts": [
+   [
+    "product",
+    "Acme Voice ships a call-qa startup product with live voice calls.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Voice has 26 staff and a Seed round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C3",
+  "kind": "connect",
+  "company": "Acme Voice",
+  "facts": [
+   [
+    "product",
+    "Acme Voice ships a call-qa startup product with live voice calls.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Voice has 26 staff and a Seed round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C3",
+  "kind": "nudge",
+  "company": "Acme Voice",
+  "facts": [
+   [
+    "product",
+    "Acme Voice ships a call-qa startup product with live voice calls.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Voice has 26 staff and a Seed round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C3",
+  "kind": "sms",
+  "company": "Acme Voice",
+  "facts": [
+   [
+    "product",
+    "Acme Voice ships a call-qa startup product with live voice calls.",
+    "High"
+   ],
+   [
+    "about",
+    "Acme Voice has 26 staff and a Seed round.",
+    "High"
+   ]
+  ]
+ },
+ {
+  "cid": "C3",
+  "kind": "intro",
+  "company": "Acme Voice",
+  "facts": [
+   [
+    "about",
+    "Acme Voice has 26 staff and a Seed round.",
+    "High"
+   ]
+  ]
+ }
+]

@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     allowed_recipients: str = "gmail.com,helix.demo"
 
     worker_campaign_id: str = ""
+    embedded_worker: bool = False
 
     @model_validator(mode="after")
     def production_needs_secrets(self):

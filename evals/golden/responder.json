@@ -1,0 +1,77 @@
+[
+ {
+  "text": "Interested, tell me more.",
+  "expect": "positive",
+  "sub": null
+ },
+ {
+  "text": "Send details please.",
+  "expect": "positive",
+  "sub": null
+ },
+ {
+  "text": "The first slot works for me.",
+  "expect": "book",
+  "sub": null
+ },
+ {
+  "text": "We are building this in-house.",
+  "expect": "objection",
+  "sub": "inhouse"
+ },
+ {
+  "text": "Where does customer data stay?",
+  "expect": "objection",
+  "sub": "residency"
+ },
+ {
+  "text": "We already use a competitor.",
+  "expect": "objection",
+  "sub": "competitor"
+ },
+ {
+  "text": "Could you send a case study?",
+  "expect": "objection",
+  "sub": "case"
+ },
+ {
+  "text": "Not now, revisit in Q1.",
+  "expect": "not_now",
+  "sub": null
+ },
+ {
+  "text": "Please unsubscribe me.",
+  "expect": "unsubscribe",
+  "sub": null
+ },
+ {
+  "text": "I am out of office until Monday.",
+  "expect": "ooo",
+  "sub": null
+ },
+ {
+  "text": "Can you do a 30% volume discount for 300 agents?",
+  "expect": "escalate",
+  "sub": "pricing_negotiation"
+ },
+ {
+  "text": "Send your SOC 2 report and security questionnaire.",
+  "expect": "escalate",
+  "sub": "security_questionnaire"
+ },
+ {
+  "text": "Please stop bothering me or I will report you.",
+  "expect": "escalate",
+  "sub": "hostile_tone"
+ },
+ {
+  "text": "Can I talk to a human?",
+  "expect": "escalate",
+  "sub": "human_request"
+ },
+ {
+  "text": "Our legal team needs to review the contract first.",
+  "expect": "escalate",
+  "sub": "legal_terms"
+ }
+]

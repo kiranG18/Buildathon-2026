@@ -196,6 +196,26 @@ def advance(body: ClockBody, user: User = Depends(mgr), db: Db = Depends(db_dep)
     return controls.advance_clock(db, body.hours)
 
 
+class PlayCallBody(BaseModel):
+    enrollment_id: str
+
+
+@router.post("/demo/play-call")
+def play_call(body: PlayCallBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    """Replay the DronaHQ Voice post-call path with a scripted transcript, labelled SANDBOX."""
+    _demo_only()
+    from backend.orchestrator.repo import enrollment as get_enrollment
+
+    e = get_enrollment(db, body.enrollment_id)
+    cid = replies.record_call(db, e, sandbox=True)
+    e = get_enrollment(db, body.enrollment_id)
+    if e["state"] not in ("meeting", "opted_out", "stopped"):
+        from agents.util import slots_for
+
+        replies.book_meeting(db, e, slots_for(clock.ms(clock.now()))[0], "Caller")
+    return {"call_id": cid}
+
+
 @router.post("/demo/reset")
 def reset(user: User = Depends(adm)) -> dict:
     _demo_only()

@@ -16,6 +16,7 @@ from backend.core import clock  # noqa: E402
 from backend.core.config import get_settings  # noqa: E402
 from backend.core.db import Db, J, migrate, tx  # noqa: E402
 from backend.core.security import hash_password  # noqa: E402
+from evals.runner import run_seeded  # noqa: E402
 from rag.chunking import parse_frontmatter  # noqa: E402
 from rag.ingest import KNOWLEDGE_DIR, ingest_file  # noqa: E402
 
@@ -58,6 +59,8 @@ def load(now: datetime | None = None) -> dict:
             _activity(db, S, ts)
             _misc(db, S, ts)
             _knowledge(db, S, ts)
+            run_seeded(db)
+            db.x("delete from jobs where prospect_id = 'dana-whitfield' and status = 'queued' and step = 'research'")
         db.x("select setval('id_seq', greatest(nextval('id_seq'), 20000))")
     counts = {k: len(S[k]) for k in ("camps", "users", "people", "enr", "msgs", "acts", "jobs", "approvals")}
     return counts
@@ -108,7 +111,7 @@ def _prompts(db: Db, S: dict, ts) -> None:
     for p in S["prompts"]:
         db.x(
             "insert into prompt_versions (id, campaign_id, agent_key, version, status, author_id, created_at, change_note, lines, parent_version, gold) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (p["id"], p["cid"], p["role"], p["v"], p["status"], p["author"], ts(p["at"]), p["note"], J(p["lines"]), p["parent"], J(p["gold"]) if p["gold"] else None),
+            (p["id"], p["cid"], p["role"], p["v"], p["status"], p["author"], ts(p["at"]), p["note"], J(p["lines"]), p["parent"], None),
         )
 
 

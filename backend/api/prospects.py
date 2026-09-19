@@ -92,6 +92,20 @@ def escalate(eid: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> d
     return {"state": "escalated"}
 
 
+class ReassignBody(BaseModel):
+    replacement_rep_id: str
+
+
+@router.post("/enrollments/{eid}/reassign")
+def reassign(eid: str, body: ReassignBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    rep = db.q1("select id from users where id = %s and role = 'Rep' and active", (body.replacement_rep_id,))
+    if not rep:
+        raise NotFound("Rep not found or offboarded")
+    enrollment(db, eid)
+    db.x("update enrollments set rep_id = %s where id = %s", (rep["id"], eid))
+    return {"rep_id": rep["id"]}
+
+
 @router.post("/enrollments/{eid}/run", status_code=202)
 def run_now(eid: str, body: RunBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     e = enrollment(db, eid)

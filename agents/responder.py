@@ -40,13 +40,13 @@ class Reading:
     prompt_version: int | None = None
 
 
-def read(db: Db, e: dict, p: dict, c: dict, text: str) -> Reading:
+def read(db: Db, e: dict, p: dict, c: dict, text: str, version: int | None = None) -> Reading:
     ruled = templates.classify(text)
     if not runtime.live() or ruled["cls"] in RULE_CLASSES:
         return Reading(ruled["cls"], ruled.get("sub"), ruled["rule"])
     from agents.memory import build
 
-    b = runtime.bundle(db, c["id"], "Responder")
+    b = runtime.bundle(db, c["id"], "Responder", version)
     hits = runtime.gather(db, c["id"], runtime.plan_query(p, text), [(["objections"], 2), (["playbook"], 1), (["overview"], 1)])
     task = ("Classify the inbound reply and decide the next action. Answer objections only from knowledge blocks. Ask at most one question. Never negotiate price. "
             "Escalate on legal terms, pricing negotiation, security questionnaires, hostile tone or a request for a human. "
