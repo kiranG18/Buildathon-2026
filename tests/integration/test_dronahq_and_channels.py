@@ -212,6 +212,17 @@ def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enr
         REGISTRY.clear()
 
 
+def test_import_accepts_an_optional_email_and_phone(seeded):
+    from backend.orchestrator import discovery
+
+    with scratch() as db:
+        discovery.import_rows(db, "C3", [["Quinn Tester", "CEO", "Voxel Labs", "Quinn.Tester@Example.com", "+91 87891 87914"], ["Robin Plain", "CEO", "Voxel Labs"]], {"id": "U1", "name": "Nadia Frost", "role": "Admin"})
+        quinn = db.q1("select email, phone from prospects where id = 'quinn-tester'")
+        robin = db.q1("select email, phone from prospects where id = 'robin-plain'")
+        assert quinn == {"email": "quinn.tester@example.com", "phone": "+91 87891 87914"}
+        assert "+robin.plain@" in robin["email"] and robin["phone"].startswith("+1 (415)")
+
+
 def test_gmail_send_stores_the_message_id_gmail_assigned(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
 

@@ -69,7 +69,7 @@ def _rich(db: Db, p: dict, key: str, r: random.Random) -> list[dict]:
     return out
 
 
-def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: random.Random) -> dict:
+def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: random.Random, email: str = "", phone: str = "") -> dict:
     """Create the prospect (and company) or return the existing record. Matching is on lowercased email, so overlap across campaigns is detectable."""
     pid = slug(name)
     existing = db.q1("select id from prospects where id = %s", (pid,))
@@ -80,8 +80,8 @@ def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: rand
     intl = bool(re.search(r"Singapore|Dubai", comp["city"]))
     region = "IN" if indian and not intl else ("INTL" if intl else "US")
     local, _, domain = get_settings().seed_inbox_base.partition("@")
-    email = f"{local}+{slug(name).replace('-', '.')}@{domain or 'gmail.com'}"
-    phone = f"+91 98{10000000 + js_hash(pid) % 89999999}" if indian else f"+1 (415) 555-01{js_hash(pid) % 100:02d}"
+    email = email.strip().lower() or f"{local}+{slug(name).replace('-', '.')}@{domain or 'gmail.com'}"
+    phone = phone.strip() or (f"+91 98{10000000 + js_hash(pid) % 89999999}" if indian else f"+1 (415) 555-01{js_hash(pid) % 100:02d}")
     cid = slug(company) + ".com"
     db.x("insert into companies (id, name, domain, industry, staff, stage, city) values (%s,%s,%s,%s,%s,%s,%s) on conflict (id) do nothing",
          (cid, company, cid, comp["ind"], comp["staff"], comp["stage"], comp["city"]))
@@ -141,8 +141,8 @@ def import_rows(db: Db, campaign_id: str, rows: list[list[str]], by: dict) -> di
     key = _key_for(c)
     r = random.Random(js_hash(campaign_id) + 7)
     created = deduped = 0
-    for name, title, company in ((x[0], x[1], x[2]) for x in rows if len(x) >= 3 and x[0]):
-        pr = make_prospect(db, name, title, company, key, r)
+    for name, title, company, email, phone in ((x[0], x[1], x[2], x[3] if len(x) > 3 else "", x[4] if len(x) > 4 else "") for x in rows if len(x) >= 3 and x[0]):
+        pr = make_prospect(db, name, title, company, key, r, email, phone)
         if db.q1("select 1 as x from enrollments where campaign_id = %s and prospect_id = %s", (campaign_id, pr["id"])):
             deduped += 1
             continue
