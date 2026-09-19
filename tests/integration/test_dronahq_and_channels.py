@@ -212,6 +212,17 @@ def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enr
         REGISTRY.clear()
 
 
+def test_twilio_send_failure_reports_the_twilio_error_code_and_nothing_personal(seeded, monkeypatch):
+    monkeypatch.setattr(get_settings(), "allowed_recipients", "+14155550100")
+    adapters.set_transport(httpx.MockTransport(lambda req: httpx.Response(400, json={"code": 21608, "message": "The number +14155550100 is unverified"})))
+    try:
+        with pytest.raises(ChannelError) as exc:
+            adapters.TwilioAdapter("AC1", "tok", "+17372508034").send(OutboundMessage("M-3", "sms", "+14155550100", None, "Hi"))
+        assert "error 21608" in exc.value.message and "+1415" not in exc.value.message
+    finally:
+        adapters.set_transport(None)
+
+
 def test_import_accepts_an_optional_email_and_phone(seeded):
     from backend.orchestrator import discovery
 

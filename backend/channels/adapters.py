@@ -179,7 +179,11 @@ class TwilioAdapter:
         with _client() as c:
             r = c.post(f"https://api.twilio.com/2010-04-01/Accounts/{self.sid}/Messages.json", auth=(self.sid, self.token), data={"To": msg.to, "From": self.from_number, "Body": msg.body})
         if r.status_code >= 400:
-            raise ChannelError(f"Twilio rejected the message: {r.status_code}", code="twilio_send")
+            try:
+                twilio_code = r.json().get("code")
+            except ValueError:
+                twilio_code = None
+            raise ChannelError(f"Twilio rejected the message: {r.status_code}" + (f", error {twilio_code}" if twilio_code else ""), code="twilio_send")
         return SendResult(external_id=r.json().get("sid"))
 
     def poll_inbound(self, since) -> list[dict]:
