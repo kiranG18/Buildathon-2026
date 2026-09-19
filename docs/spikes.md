@@ -62,3 +62,13 @@ Target: https://buildathon-2026-production.up.railway.app (Railway, Southeast As
 | Reply from the sandbox mailbox | Matched to the enrollment, classified `book`, and the Responder sent a live email with meeting slots. The prospect moved to `replied_pos` |
 | `ALLOWED_RECIPIENTS` and plus-addresses | `name+tag@domain` counts as `name@domain`. Any other address is still refused |
 | Twilio connection test in the app | ok (Account SID and Auth Token; an API key is not enough because the webhook signature uses the Auth Token) |
+
+## DronaHQ Vibe MCP (20 Sep 2026)
+
+| Finding | Detail |
+| --- | --- |
+| Server | `dronahq_mcp`, Streamable HTTP with a bearer token, connected from Claude Code. About 40 `vibe_*` tools (apps, connectors, data agents) and 15 `automation_*` tools. No tool for the Agentic platform agent builder or Voice agents |
+| Automations | Task types: REST API, Managed AI, JS Code, Branch, HTTP Response, Delay, Filter, Iterate, connector queries, Call Service (S3, GCS, Lambda, SMTP only). Trigger: WebHook or Scheduler. A webhook automation must not be a bare WebHook to HTTP Response |
+| Managed AI | The workspace lists a `DronaHQ_AI` connector (catId 11, no auth) with actions SummarizeText, GenerateText, GenerateChatResponse (input, sysprompt, msgs, temp, model) and GenerateImage. `model` is required and its allowed values are not documented |
+| Running the connector | `vibe_run_subcat` on catId 11 fails with "No accounts configured for connector 11". An account has to be added in Studio first. The MCP cannot create one and secrets never go through it |
+| Our webhook contract | `backend/orchestrator/dronahq.py`: POST JSON (prompt bundle, prospect context, output schema, optional `api-key` header). The Researcher may answer with facts or save them through our MCP within 90 s. The Responder must answer with classification, reply draft, claims and confidence |
