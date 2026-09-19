@@ -27,6 +27,8 @@ def process_email(db: Db, item: dict) -> bool:
 
     if db.q1("select 1 as x from messages where external_id = %s", (item["external_id"],)):
         return False
+    if item.get("rfc_id") and db.q1("select 1 as x from messages where rfc_message_id = %s and direction = 'out'", (item["rfc_id"],)):
+        return False
     e = match_enrollment(db, item)
     if e is None:
         log().info("inbound email did not match an enrollment", extra={"event": "inbound_unmatched"})

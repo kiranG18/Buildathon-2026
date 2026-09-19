@@ -90,7 +90,7 @@ class GmailAdapter:
         after = int(since.timestamp()) if since else int(time.time()) - 3600
         with _client(15) as c:
             h = {"Authorization": f"Bearer {self._access_token()}"}
-            listing = c.get("https://gmail.googleapis.com/gmail/v1/users/me/messages", headers=h, params={"q": f"in:inbox after:{after} -from:{self.sender}", "maxResults": 20})
+            listing = c.get("https://gmail.googleapis.com/gmail/v1/users/me/messages", headers=h, params={"q": f"in:inbox after:{after}", "maxResults": 20})
             if listing.status_code >= 400:
                 raise ChannelError(f"Gmail poll failed: {listing.status_code}", code="gmail_poll")
             out = []

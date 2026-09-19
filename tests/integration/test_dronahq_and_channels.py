@@ -212,6 +212,46 @@ def test_gmail_adapter_sends_with_a_message_id_and_maps_a_reply_to_the_right_enr
         REGISTRY.clear()
 
 
+def test_gmail_poll_takes_a_reply_sent_from_the_sandbox_mailbox_and_skips_our_own_copy(seeded, monkeypatch):
+    monkeypatch.setattr(get_settings(), "allowed_recipients", "gmail.com")
+    sender = "helix.sandbox@gmail.com"
+    sent, queries = {}, []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "oauth2" in str(req.url):
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
+        if str(req.url).endswith("/messages/send"):
+            return httpx.Response(200, json={"id": "gm-1"})
+        if "/messages?" in str(req.url):
+            queries.append(req.url.params["q"])
+            return httpx.Response(200, json={"messages": [{"id": "own-copy"}, {"id": "reply-1"}]})
+        data = base64.urlsafe_b64encode(b"Interested, can you send times?").decode()
+        if "/messages/own-copy" in str(req.url):
+            return httpx.Response(200, json={"id": "own-copy", "payload": {"mimeType": "text/plain", "body": {"data": data},
+                                  "headers": [{"name": "From", "value": sender}, {"name": "Message-ID", "value": sent["rfc"]}]}})
+        return httpx.Response(200, json={"id": "reply-1", "payload": {"mimeType": "text/plain", "body": {"data": data},
+                              "headers": [{"name": "In-Reply-To", "value": sent["rfc"]}, {"name": "From", "value": sender}, {"name": "Message-ID", "value": "<r2@x>"}]}})
+
+    adapters.set_transport(httpx.MockTransport(handler))
+    try:
+        g = adapters.GmailAdapter("id", "secret", "refresh", sender)
+        sent["rfc"] = g.send(OutboundMessage("M-1", "email", "helix.sandbox+tomas.reyes@gmail.com", "Hello", "Body")).rfc_message_id
+        e = enrollment_of("tomas-reyes", "C1")
+        with tx() as db:
+            db.x("insert into messages (id, enrollment_id, prospect_id, campaign_id, channel, direction, body, rfc_message_id) values ('M-gm2', %s, 'tomas-reyes', 'C1', 'email', 'out', 'x', %s)", (e["id"], sent["rfc"]))
+            REGISTRY["email"] = g
+            inbound._last_poll.clear()
+            n = inbound.poll_all(db)
+            inbound._last_poll.clear()
+            assert n == 1
+            assert db.q1("select enrollment_id from messages where external_id = 'reply-1'")["enrollment_id"] == e["id"]
+            assert db.q1("select 1 as x from messages where external_id = 'own-copy'") is None
+        assert "-from" not in queries[0]
+    finally:
+        adapters.set_transport(None)
+        REGISTRY.clear()
+
+
 def test_af1_failing_sends_retry_then_escalate_and_three_failures_degrade_the_channel(seeded, monkeypatch):
     from backend.orchestrator.worker import Worker
 
