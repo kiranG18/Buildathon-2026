@@ -93,7 +93,8 @@ def main() -> None:
     prs.slide_width, prs.slide_height = W, H
 
     s = slide(prs, "Cadence", "An autonomous multi-channel SDR with a manager control plane")
-    bullets(s, ["Launch a campaign, watch agents work it, pause it in one click.", "Tech Contingent x DronaHQ Inter Guild Buildathon 2026", "Demo seller: Helix Agents (fictional). Every seeded record carries a DEMO chip."], top=2.2, size=22)
+    bullets(s, ["Launch a campaign, watch agents work it, pause it in one click.", "Live: buildathon-2026-production.up.railway.app", "Tech Contingent x DronaHQ Inter Guild Buildathon 2026",
+                "Demo seller: Helix Agents (fictional). Every seeded record carries a DEMO chip."], top=2.2, size=22)
 
     s = slide(prs, "The problem", "How close is this to a real SDR working autonomously across channels?")
     bullets(s, ["Reps spend the day on research, copy and logging. Quality varies by rep and by day.", "Nobody can answer why a message went out.",
@@ -119,8 +120,8 @@ def main() -> None:
     bullets(s, ["DronaHQ agents call our seven MCP tools. Callbacks carry a shared secret."], left=0.6, top=6.5, size=14)
 
     s = slide(prs, "The agents", "Six model-backed units and one deterministic supervisor")
-    rows = [("Qualifier (ICP Fitment)", "Direct, Haiku 4.5. Hard filters and the score are code"), ("Researcher", "DronaHQ agent with web search, enrichment and MCP tools"),
-            ("Sequencer (Strategy and Follow-up)", "Direct, Sonnet 5. Code lists the legal channels first"), ("Writer (Personalisation)", "Direct, Sonnet 5. Grounding check rejects unsourced claims"),
+    rows = [("Qualifier (ICP Fitment)", "Direct, fast model. Hard filters and the score are code"), ("Researcher", "DronaHQ agent with web search, enrichment and MCP tools"),
+            ("Sequencer (Strategy and Follow-up)", "Direct, strong model. Code lists the legal channels first"), ("Writer (Personalisation)", "Direct, strong model. Grounding check rejects unsourced claims"),
             ("Responder (Conversation)", "DronaHQ agent. Opt-out and hard escalation rules run before any model"), ("Caller (Voice SDR)", "DronaHQ Voice with pre and post webhooks"),
             ("Guardian", "Plain code. No model can override it")]
     for i, (a, b) in enumerate(rows):
@@ -130,10 +131,15 @@ def main() -> None:
         tb.text_frame.paragraphs[0].font.size = Pt(15)
 
     s = slide(prs, "DronaHQ is core, and our code is real", "What runs where")
-    bullets(s, ["Apps Studio hosts the manager workspace, shared with Public Access.", "The Researcher, Responder and Caller run on the DronaHQ Agentic platform and Voice.",
+    bullets(s, ["Apps Studio: a native manager app with sign in, Command Center, campaigns, dashboard and kill switch, plus the full workspace embedded.", "The Researcher and Responder are DronaHQ Agentic platform agents. The Caller uses DronaHQ Voice.",
                 "Our MCP server exposes seven tools to them: search_knowledge, get_timeline, save_research, propose_slots, book_meeting, create_escalation, set_classification.",
                 "Our own code: state machine, gate, conflict engine, RAG, channels, evals, prompt versioning, auth.",
                 "If a hosted agent is silent for 90 seconds, the step reruns on the direct provider and the feed says provider_fallback."])
+
+    s = slide(prs, "The DronaHQ manager app", "Native Apps Studio screens on the live API (screens from a browser test against it)")
+    picture(s, "dronahq_app_command_center.png", 0.5, 1.6, 6.1)
+    picture(s, "dronahq_app_campaign_dashboard.png", 6.8, 1.6, 6.1)
+    bullets(s, ["Sign in, Command Center with Stop all, campaign list with pause and resume, campaign dashboard with a switch per agent, and the full workspace embedded."], left=0.6, top=5.6, width=12.0, size=16)
 
     s = slide(prs, "The policy gate", "Ten ordered checks, one reason code each, idempotent")
     bullets(s, ["1 kill switch  2 campaign Live  3 agent on  4 channel on  5 not suppressed", "6 claim held by this campaign  7 frequency (one touch per 48 hours, four in 14 days)", "8 rep quota and active  9 campaign and channel daily caps  10 approval rule",
@@ -153,15 +159,16 @@ def main() -> None:
             + ["Golden sets, 15 seeded cases per agent, scored by the runner: C1 Writer " + " and ".join(f"{k.split('-')[-1]} {v}" for k, v in n["gold"].items() if "Writer" in k) + "."], size=17)
 
     s = slide(prs, "Reliability", "Built to fail cleanly")
-    bullets(s, ["86 tests against a real Postgres: every gate check, conflict cases K1 to K9, the send race, pause isolation, stop levels.", "LLM failure injection: invalid JSON, empty output, wrong schema, timeouts, 429s. The Qualifier never qualifies on failure.",
+    bullets(s, ["99 tests against a real Postgres: every gate check, conflict cases K1 to K9, the send race, pause isolation, stop levels.", "LLM failure injection: invalid JSON, empty output, wrong schema, timeouts, 429s that wait as long as the provider asks. The Qualifier never qualifies on failure.",
                 "Webhook secrets, JWT roles, injection, CORS, rate limits, and a log scan for emails.", "One error envelope, structured logs, typed exceptions, secrets in the environment, ALLOWED_RECIPIENTS on every send."], size=18)
 
     s = slide(prs, "What works, and what is honest", "Sandbox is an approved state and the badge tells the truth")
-    bullets(s, ["Working: campaigns, lifecycle, gate, conflicts, prompts and replay, RAG, evals, approvals, reps, analytics, MCP, voice webhooks.", "Built, waiting for credentials: Gmail, Twilio and the DronaHQ hosted agents. Until then they run in sandbox or on the direct provider.",
-                "LinkedIn is a sandbox by design. Offline agents use estimated costs. Golden sets are small.", "Full list: docs/report/report.md"], size=18)
+    bullets(s, ["Working live: campaigns, lifecycle, gate, conflicts, prompts and replay, RAG, evals, approvals, reps, analytics, MCP, and Gmail end to end (send, reply, classify, book).",
+                "Partial: SMS (Twilio connected, first real text untested), voice (sandbox), and the hosted DronaHQ agents until they are switched on. Each falls back to sandbox or the direct provider.",
+                "LinkedIn is a sandbox by design. Golden sets are small and the live-model scores depend on the provider's rate limit.", "Full list: docs/report/report.md"], size=18)
 
     s = slide(prs, "Try it yourself", "Judge card")
-    bullets(s, ["1. Sign in with a demo chip. Create a campaign from the C1 template. Try Activate and read the checklist.", "2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.", "3. Pause a campaign and watch Agent Activity.", "Repo: github.com/kiranG18/Buildathon-2026"], size=20)
+    bullets(s, ["1. Sign in with a demo chip. Create a campaign from the C1 template. Try Activate and read the checklist.", "2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.", "3. Pause a campaign and watch Agent Activity.", "Live: buildathon-2026-production.up.railway.app", "Repo: github.com/kiranG18/Buildathon-2026"], size=20)
 
     out = ROOT / "docs" / "deck"
     out.mkdir(parents=True, exist_ok=True)

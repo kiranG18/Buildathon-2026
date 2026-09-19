@@ -1,6 +1,6 @@
 # Deck outline
 
-`python scripts/build_deck.py` writes `Cadence.pptx` (13 slides) and reads its numbers from the database, so the figures on the slides match the live workspace. Regenerate it after a `make reset` and after the final prompt freeze.
+`python scripts/build_deck.py` writes `Cadence.pptx` (14 slides) and reads its numbers from the database, so the figures on the slides match the live workspace. Regenerate it after a `make reset` and after the final prompt freeze.
 
 | # | Slide | Message |
 | --- | --- | --- |
@@ -19,3 +19,5 @@
 | 13 | Try it yourself | The judge card and the repository |
 
 Live demo: `docs/demo.md`. Backup video: recorded at H49 from the final build.
+
+Slide 7 was added after this outline: "The DronaHQ manager app", the native Apps Studio screens.
