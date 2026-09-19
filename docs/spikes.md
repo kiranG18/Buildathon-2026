@@ -49,3 +49,16 @@ Target: https://buildathon-2026-production.up.railway.app (Railway, Southeast As
 | Channel badges on seeded and new messages | all `sandbox` (no live adapter is configured) |
 | Worker advancing | queued jobs 8 to 4 and messages 123 to 128 in 45 seconds |
 | Error lines in the last 30 log lines | 0 |
+
+## Gmail and Twilio on the live deployment (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Gmail OAuth (Web-type client, loopback redirect `http://127.0.0.1:8765/`, Testing mode) | `scripts/gmail_auth.py` returned a refresh token. A Web client needs the redirect URI registered, a Desktop client does not. The sandbox account must be listed as a test user |
+| Gmail connection test in the app (`POST /integrations/gmail/test`) | ok |
+| First touch to a discovered prospect (`sandbox+name@gmail.com`) | Sent through the Gmail API, recorded as mode `live`, status `sent` |
+| Gmail API and `Message-ID` | Gmail replaces the `Message-ID` we set. Replies quote Gmail's, so `send` now reads the assigned id back with a metadata call and stores that. Before this fix no reply matched |
+| Poll query | `-from:<sandbox>` had to go: prospects are plus-addresses of the sandbox account, so their replies come from it. Our own copy is skipped by Gmail id and by `Message-ID` |
+| Reply from the sandbox mailbox | Matched to the enrollment, classified `book`, and the Responder sent a live email with meeting slots. The prospect moved to `replied_pos` |
+| `ALLOWED_RECIPIENTS` and plus-addresses | `name+tag@domain` counts as `name@domain`. Any other address is still refused |
+| Twilio connection test in the app | ok (Account SID and Auth Token; an API key is not enough because the webhook signature uses the Auth Token) |
