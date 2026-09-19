@@ -26,3 +26,11 @@ Results of the checks the plan schedules for the first hours. A check marked "no
 | Voice telephony blocked | Scripted call outcome through the same recording path |
 | Embeddings down | Full-text retrieval |
 | LLM down | Fallback provider, then rules, then `LLM_MODE=replay` |
+
+## Deploy findings (19 Sep 2026)
+
+| Finding | What happened | What to do |
+| --- | --- | --- |
+| Supabase direct host is IPv6 only | Railway could not reach `db.<ref>.supabase.co` (`Network is unreachable`) | Use the session pooler, `aws-0-<region>.pooler.supabase.com:5432`, user `postgres.<ref>` |
+| Seeding across regions is slow | The seed is one transaction of many small calls. From Railway in San Francisco to Supabase in Mumbai it did not finish in minutes, and a stale session held the truncate locks | Run `python scripts/bootstrap.py` once from a machine near the database, or host the web service in the database's region. A second run finds the workspace and starts at once |
+| An open seed session blocks every query | While a seed transaction is open, `select count(*) from campaigns` waits and hits the 5 s statement timeout | Wait for it to finish. Do not terminate sessions that look idle in transaction: the seed is working |
