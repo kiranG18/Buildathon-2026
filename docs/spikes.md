@@ -72,3 +72,14 @@ Target: https://buildathon-2026-production.up.railway.app (Railway, Southeast As
 | Managed AI | The workspace lists a `DronaHQ_AI` connector (catId 11, no auth) with actions SummarizeText, GenerateText, GenerateChatResponse (input, sysprompt, msgs, temp, model) and GenerateImage. `model` is required and its allowed values are not documented |
 | Running the connector | `vibe_run_subcat` on catId 11 fails with "No accounts configured for connector 11". An account has to be added in Studio first. The MCP cannot create one and secrets never go through it |
 | Our webhook contract | `backend/orchestrator/dronahq.py`: POST JSON (prompt bundle, prospect context, output schema, optional `api-key` header). The Researcher may answer with facts or save them through our MCP within 90 s. The Responder must answer with classification, reply draft, claims and confidence |
+
+## DronaHQ Apps Studio app (20 Sep 2026)
+
+| Finding | Detail |
+| --- | --- |
+| App | Vibe app `Cadence`, pluginId 77710, published as version 0.0.1 and set to public access. Source of truth in this repo: `dronahq/app/main.jsx` |
+| Screens | Sign in, Command Center with Stop all, campaign list with pause and resume, campaign dashboard with a switch per agent, and the full workspace in a frame. Tested in a real browser against the live API |
+| REST connector | `vibe_create_rest_connector` only returns an error that points to the Studio setup link, so a connector cannot be created from the MCP |
+| Automation as a proxy | A published automation (webhook, REST API task, HTTP Response task) answered every call, with or without the input schema set, with `{"message":"success"}`. The webhook only acknowledges, so it cannot return the API reply. It was switched off |
+| Direct calls | The app calls the API from the browser with a bearer token. `backend/main.py` allows origins matching `https://*.dronahq.com` and refuses everything else (`test_se6_cors_allows_only_the_configured_origin`) |
+| Not verified | Whether DronaHQ's runtime allows the app's outbound `fetch` and the framing of the hosted site. This needs a look at the published link in a browser |

@@ -1,7 +1,7 @@
 const { useState, useEffect, useRef, useCallback } = React;
 const { createRoot } = ReactDOM;
 
-const PROXY_URL = "__PROXY_URL__";
+const API_BASE = "https://buildathon-2026-production.up.railway.app";
 const CADENCE_URL = "https://buildathon-2026-production.up.railway.app/";
 const DEMO_ACCOUNTS = [
   { label: "Ava Chen, manager", email: "ava@helix.demo" },
@@ -21,24 +21,20 @@ class ApiError extends Error {
 }
 
 async function callApi(method, path, token, payload) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = "Bearer " + token;
   let res;
   try {
-    res = await fetch(PROXY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method, path, token: token || "", payload: payload === undefined ? "" : JSON.stringify(payload) })
-    });
+    res = await fetch(API_BASE + path, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload) });
   } catch (e) {
     throw new ApiError("network", "Cannot reach the server.");
   }
-  let data = await res.text();
-  for (let i = 0; i < 2 && typeof data === "string"; i++) {
-    try { data = JSON.parse(data); } catch (e) { break; }
-  }
+  let data;
+  try { data = await res.json(); } catch (e) { throw new ApiError("bad_reply", "The server sent an unexpected reply."); }
   if (data && typeof data === "object" && data.error) {
     throw new ApiError(data.error.code || "error", data.error.message || "Something went wrong.");
   }
-  if (!res.ok || typeof data === "string") throw new ApiError("bad_reply", "The server sent an unexpected reply.");
+  if (!res.ok) throw new ApiError("bad_reply", "The server sent an unexpected reply.");
   return data;
 }
 
