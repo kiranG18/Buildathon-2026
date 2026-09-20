@@ -148,3 +148,12 @@ Findings:
 | Tests | `test_live_linkedin_always_needs_a_person_to_send`, `test_linkedin_is_live_only_as_rep_assisted_and_a_pasted_reply_is_classified` |
 | Not verified | A real note sent from a real account. Run one by hand before the demo if you want it on video |
 
+## LinkedIn runner on a laptop (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Why not on the server | The deployed image has no Node or Chrome, and a login from a data-centre address is likely to trip LinkedIn's security check. A serverless function would also time out and keep no browser profile |
+| Design | `scripts/linkedin_runner.py` reads open LinkedIn approvals from the site, asks `y/N` per note, runs `scripts/linkedin_bot.js` in the user's own Chrome, then approves through the API so the touch is stored as LIVE. A failed send leaves the approval open. Five notes per run, 45 to 90 seconds apart |
+| Verified | Chrome starts headless from Node on the build laptop (`scripts/test_browser.js`). The runner signs in to production and stops with "LinkedIn is in Sandbox" while the integration is in Sandbox. Note selection and truncation are unit tested |
+| Not verified | A real note sent from a real LinkedIn account. Real profile URLs must come from the CSV import |
+

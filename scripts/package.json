@@ -1,0 +1,9 @@
+{
+  "name": "cadence-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Local helpers that drive a signed-in Chrome for LinkedIn. Not used by the deployed site.",
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}
