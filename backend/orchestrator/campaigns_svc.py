@@ -90,7 +90,8 @@ def create(db: Db, body: dict, by: dict) -> dict:
              (cid, a, agents.get(a, True), "dronahq" if a in ("Researcher", "Responder", "Caller") else "direct"))
     for ch, on in channels.items():
         db.x("insert into channel_settings (campaign_id, channel, enabled, daily_limit) values (%s,%s,%s,%s)", (cid, ch, on, {"email": 40, "linkedin": 20, "sms": 10, "voice": 5}[ch]))
-    for r in body.get("rep_ids", []):
+    rep_ids = body.get("rep_ids") or [r["id"] for r in db.q("select id from users where role = 'Rep' and active order by id limit 1")]
+    for r in rep_ids:
         db.x("insert into rep_assignments (rep_id, campaign_id) values (%s,%s)", (r, cid))
     c = campaign(db, cid)
     prompts_svc.seed_prompts(db, c, by["id"])

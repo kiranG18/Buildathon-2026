@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from backend.core import clock
 from backend.core.db import Db
-from backend.core.errors import CadenceError, NotFound, StateConflict
+from backend.core.errors import CadenceError, Forbidden, NotFound, StateConflict
 from backend.core.security import User, current_user, db_dep, hash_password, require
 from backend.orchestrator import controls, replies
 from backend.orchestrator.repo import act
@@ -29,12 +29,12 @@ class ReassignBody(BaseModel):
 class UserBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     role: Literal["Admin", "Manager", "Rep"] = "Rep"
-    email: str | None = Field(default=None, max_length=120)
-    rep_limit: int = Field(default=30, ge=0, le=500)
+    email: str | None = None
+    rep_limit: int = 30
 
 
 class RepPatch(BaseModel):
-    rep_limit: int
+    rep_limit: int = Field(ge=0, le=500)
 
 
 class SuppressBody(BaseModel):
@@ -68,6 +68,7 @@ def kill_set(body: KillBody, user: User = Depends(mgr), db: Db = Depends(db_dep)
 
 # --- reps -----------------------------------------------------------------------------------------------------------------
 
+
 @router.get("/reps")
 def reps(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[dict]:
     out = []
@@ -78,8 +79,10 @@ def reps(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[d
 
 
 @router.post("/users", status_code=201)
-def add_user(body: UserBody, user: User = Depends(adm), db: Db = Depends(db_dep)) -> dict:
-    """An admin adds a rep, manager or admin. The generated password is returned once and only its hash is stored."""
+def add_user(body: UserBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    """An admin or manager adds a rep, manager or admin. The generated password is returned once and only its hash is stored."""
+    if body.role == "Admin" and user["role"] != "Admin":
+        raise Forbidden("Only an Admin can create an Admin account")
     slug_ = ".".join(part for part in "".join(ch if ch.isalnum() else " " for ch in body.name.lower()).split())
     email = (body.email or f"{slug_}@helix.demo").strip().lower()
     if "@" not in email or db.q1("select 1 as x from users where lower(email) = %s", (email,)):
@@ -118,7 +121,7 @@ def affected(rid: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> d
 
 
 @router.post("/reps/{rid}/offboard")
-def offboard(rid: str, body: ReassignBody | None = None, user: User = Depends(adm), db: Db = Depends(db_dep)) -> dict:
+def offboard(rid: str, body: ReassignBody | None = None, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     """Offboarding lists every affected campaign. With a replacement rep it also reassigns; without one, sends defer with no_rep_available."""
     u = get_user(db, rid)
     if not u or u["role"] != "Rep":
@@ -135,7 +138,7 @@ def offboard(rid: str, body: ReassignBody | None = None, user: User = Depends(ad
 
 
 @router.post("/reps/{rid}/reassign")
-def reassign(rid: str, body: ReassignBody, user: User = Depends(adm), db: Db = Depends(db_dep)) -> dict:
+def reassign(rid: str, body: ReassignBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     if not body.replacement_rep_id:
         raise CadenceError("Pick a replacement rep", code="validation_error")
     return {"moved": _move(db, rid, body.replacement_rep_id)}

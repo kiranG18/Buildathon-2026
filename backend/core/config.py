@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     llm_model_strong: str = ""
     llm_model_fast: str = ""
-    llm_fallback_provider: str = "groq"
+    llm_fallback_provider: str = "gemini"
     llm_fallback_key: str = ""
-    llm_fallback_model: str = ""
+    llm_fallback_model: str = "gemini-2.5-flash"
     embeddings_api_key: str = ""
     fail_llm: str = ""
     fail_embeddings: bool = False

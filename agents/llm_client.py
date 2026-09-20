@@ -132,7 +132,8 @@ def _gemini(model: str, system: str, user: str, temperature: float, max_tokens: 
         )
         r.raise_for_status()
         j = r.json()
-        text = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
+        parts = j.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        text = "".join(p.get("text", "") for p in parts if not p.get("thought", False))
         usage = j.get("usageMetadata", {})
         return RawReply(text, usage.get("promptTokenCount", 0), usage.get("candidatesTokenCount", 0))
     except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
@@ -164,22 +165,36 @@ def _openai_compatible(provider: str, key: str, model: str, system: str, user: s
 
 
 def _primary(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
-    p = get_settings().llm_provider
-    if p == "gemini" and get_settings().gemini_api_key:
+    s = get_settings()
+    p = s.llm_provider
+    if p == "gemini" and s.gemini_api_key:
         return _gemini(model, system, user, temperature, max_tokens)
-    if p == "anthropic" and get_settings().anthropic_api_key:
+    if p == "anthropic" and s.anthropic_api_key:
         return _anthropic(model, system, user, temperature, max_tokens)
-    return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
+    if s.groq_api_key:
+        return _openai_compatible("groq", s.groq_api_key, model, system, user, temperature, max_tokens)
+    if s.gemini_api_key:
+        return _gemini(resolve_model(model), system, user, temperature, max_tokens)
+    raise LLMUnavailable("no active LLM key configured (groq or gemini)")
 
 
 def _fallback(system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     s = get_settings()
-    provider = s.llm_fallback_provider or ("groq" if s.groq_api_key else "")
-    if provider not in OPENAI_COMPATIBLE:
-        raise LLMUnavailable("no fallback provider configured")
-    key = s.llm_fallback_key or (s.groq_api_key if provider == "groq" else "")
-    model = s.llm_fallback_model or (GROQ_STRONG if provider == "groq" else "gpt-4o-mini")
-    return _openai_compatible(provider, key, model, system, user, temperature, max_tokens)
+    provider = s.llm_fallback_provider
+    if not provider:
+        provider = "gemini" if s.gemini_api_key else ("groq" if s.groq_api_key else "")
+    if provider == "gemini" and s.gemini_api_key:
+        model = s.llm_fallback_model or GEMINI_STRONG
+        return _gemini(model, system, user, temperature, max_tokens)
+    if provider in OPENAI_COMPATIBLE:
+        key = s.llm_fallback_key or (s.groq_api_key if provider == "groq" else "")
+        model = s.llm_fallback_model or (GROQ_STRONG if provider == "groq" else "gpt-4o-mini")
+        return _openai_compatible(provider, key, model, system, user, temperature, max_tokens)
+    if s.gemini_api_key:
+        return _gemini(s.llm_fallback_model or GEMINI_STRONG, system, user, temperature, max_tokens)
+    if s.groq_api_key:
+        return _openai_compatible("groq", s.groq_api_key, s.llm_fallback_model or GROQ_STRONG, system, user, temperature, max_tokens)
+    raise LLMUnavailable("no fallback provider configured")
 
 
 def _call(model: str, system: str, user: str, temperature: float, max_tokens: int) -> tuple[RawReply, str]:
