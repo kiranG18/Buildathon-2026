@@ -7,7 +7,10 @@ so a channel without credentials sends nothing and its messages wear the SANDBOX
 import base64
 import hashlib
 import hmac
+import os
+from pathlib import Path
 import smtplib
+import subprocess
 import time
 import uuid
 from email.message import EmailMessage
@@ -222,6 +225,37 @@ def twilio_signature(auth_token: str, url: str, params: dict[str, str]) -> str:
     return base64.b64encode(hmac.new(auth_token.encode(), data.encode(), hashlib.sha1).digest()).decode()
 
 
+class LinkedInBrowserAdapter:
+    name = "linkedin"
+
+    def __init__(self, li_at: str = ""):
+        self.li_at = li_at
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(max_chars=300, needs_consent=False, supports_threading=False)
+
+    def send(self, msg: OutboundMessage) -> SendResult:
+        _maybe_fail("linkedin")
+        root = Path(__file__).resolve().parents[2]
+        cmd = ["node", "scripts/linkedin_bot.js", "--url", msg.to, "--note", msg.body]
+        if self.li_at:
+            cmd.extend(["--cookie", self.li_at])
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=str(root))
+        if res.returncode != 0:
+            raise ChannelError(f"LinkedIn automation error: {res.stderr or res.stdout}", code="linkedin_send_failed")
+        return SendResult(external_id=f"li-{uuid.uuid4().hex[:12]}")
+
+    def poll_inbound(self, since) -> list[dict]:
+        return []
+
+    def test(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        cmd = ["node", "scripts/test_browser.js"]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=15, cwd=str(root))
+        if res.returncode != 0:
+            raise ChannelError(f"Browser launch test failed: {res.stderr}", code="browser_test_failed")
+
+
 def register_configured() -> list[str]:
     """Register the adapters whose credentials exist. Called at start-up by the API and the worker."""
     s = get_settings()
@@ -232,7 +266,11 @@ def register_configured() -> list[str]:
         register(SmtpAdapter(s.smtp_host, s.smtp_user, s.smtp_app_password))
     if s.twilio_account_sid and s.twilio_auth_token and s.twilio_from_number:
         register(TwilioAdapter(s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number))
-    register(LinkedInAssisted())
+    li_at = os.getenv("LINKEDIN_LI_AT", "")
+    if s.channel_mode_linkedin == "live" and li_at:
+        register(LinkedInBrowserAdapter(li_at))
+    else:
+        register(LinkedInAssisted())
     return sorted(REGISTRY)
 
 
@@ -244,7 +282,6 @@ def sync_integrations(db: Db) -> None:
         "twilio": "sms" in REGISTRY,
         "voice": bool(s.dronahq_voice_agent_id and s.dronahq_voice_call_url),
         "agents": bool(s.dronahq_researcher_webhook_url or s.dronahq_responder_webhook_url),
-        "embed": bool(s.embeddings_api_key),
         "llm": bool({"anthropic": s.anthropic_api_key, "gemini": s.gemini_api_key, "groq": s.groq_api_key}.get(s.llm_provider)),
         "linkedin": True,
     }

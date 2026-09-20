@@ -198,7 +198,7 @@ def integ_test(key: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) ->
         raise NotFound("Unknown integration")
     from backend.channels.base import REGISTRY
 
-    adapter = REGISTRY.get({"gmail": "email", "twilio": "sms"}.get(key, ""))
+    adapter = REGISTRY.get({"gmail": "email", "twilio": "sms", "linkedin": "linkedin"}.get(key, ""))
     ok, err = row["status"] == "ok", row["err"]
     if adapter is not None:
         try:

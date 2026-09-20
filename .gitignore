@@ -16,3 +16,6 @@ tmp/
 client_secret*.json
 *.apps.googleusercontent.com.json
 gmail.env
+.chrome_linkedin_profile/
+linkedin_*.png
+package-lock.json
