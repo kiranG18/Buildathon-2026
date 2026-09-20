@@ -61,7 +61,7 @@ class LLMResult:
     tokens_out: int = 0
     cost: float = 0.0
     latency: float = 0.0
-    provider: str = "anthropic"
+    provider: str = "groq"
     repaired: bool = False
     replay: bool = False
     notes: list[str] = field(default_factory=list)
@@ -110,7 +110,7 @@ def resolve_model(model: str) -> str:
     strong = model == SONNET
     if s.llm_provider == "gemini":
         return (s.llm_model_strong or GEMINI_STRONG) if strong else (s.llm_model_fast or GEMINI_FAST)
-    if s.llm_provider == "groq":
+    if s.llm_provider == "groq" or (not s.anthropic_api_key and s.groq_api_key):
         return (s.llm_model_strong or GROQ_STRONG) if strong else (s.llm_model_fast or GROQ_FAST)
     return model
 
@@ -165,16 +165,16 @@ def _openai_compatible(provider: str, key: str, model: str, system: str, user: s
 
 def _primary(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     p = get_settings().llm_provider
+    if p == "groq" or (not get_settings().anthropic_api_key and not get_settings().gemini_api_key and get_settings().groq_api_key):
+        return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
     if p == "gemini":
         return _gemini(model, system, user, temperature, max_tokens)
-    if p == "groq":
-        return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
     return _anthropic(model, system, user, temperature, max_tokens)
 
 
 def _fallback(system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     s = get_settings()
-    provider = s.llm_fallback_provider
+    provider = s.llm_fallback_provider or ("groq" if s.groq_api_key else "")
     if provider not in OPENAI_COMPATIBLE:
         raise LLMUnavailable("no fallback provider configured")
     key = s.llm_fallback_key or (s.groq_api_key if provider == "groq" else "")

@@ -222,9 +222,18 @@ def dry_run(db: Db, campaign_id: str) -> dict:
                     ok = False
                     continue
                 gc = grounding.check(db, d.comp, p, campaign_id)
-                passed = not gc["bad"] and not d.generic_safe
+                hallucinated = bool(gc["bad"]) or any(x not in ("model_failure",) for x in d.failures)
+                passed = not gc["bad"] and not hallucinated and bool(d.comp.get("claims"))
                 ok = ok and passed
-                results.append({"agent": "Writer", "ok": passed, "output_summary": d.comp["body"][:200] if passed else f"{len(gc['bad'])} claims without evidence"})
+                if passed:
+                    summary = d.comp["body"][:200]
+                elif gc["bad"]:
+                    summary = f"{len(gc['bad'])} claims without evidence: {', '.join(x['reason'] for x in gc['bad'][:2])}"
+                elif d.generic_safe and d.failures:
+                    summary = f"Draft failed: {'; '.join(d.failures)}"
+                else:
+                    summary = "Grounding check failed"
+                results.append({"agent": "Writer", "ok": passed, "output_summary": summary})
             raise _Rollback
     except _Rollback:
         pass
