@@ -220,6 +220,9 @@ class LinkedInAssisted:
     def poll_inbound(self, since) -> list[dict]:
         return []
 
+    def test(self) -> None:
+        return
+
 
 def twilio_signature(auth_token: str, url: str, params: dict[str, str]) -> str:
     data = url + "".join(k + params[k] for k in sorted(params))
