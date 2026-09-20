@@ -165,7 +165,7 @@ def _openai_compatible(provider: str, key: str, model: str, system: str, user: s
 
 def _primary(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     p = get_settings().llm_provider
-    if p == "groq" or (not get_settings().anthropic_api_key and not get_settings().gemini_api_key and get_settings().groq_api_key):
+    if p == "groq":
         return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
     if p == "gemini":
         return _gemini(model, system, user, temperature, max_tokens)

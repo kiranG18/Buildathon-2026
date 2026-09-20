@@ -41,7 +41,7 @@ def test_draft_campaign_refuses_a_send(client, auth):
 
 def test_pause_isolation_three_campaigns(seeded):
     for cid in ("C1", "C2", "C3"):
-        import_prospects(cid, 30, prefix="Iso")
+        import_prospects(cid, 60, prefix="Iso")
     with tx() as db:
         controls.advance_clock(db, 2)
     run_worker(1)
