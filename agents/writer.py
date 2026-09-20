@@ -36,30 +36,46 @@ class DraftOut:
     prompt_version: int | None = None
 
 
+import re
+
+
+def _clean_text(s: str) -> str:
+    if not s:
+        return ""
+    s = re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]", "-", s)
+    s = re.sub(r"[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", " ", s)
+    return s.strip()
+
+
 def segs_from_claims(body: str, claims: list[dict]) -> tuple[list[dict], list[dict]]:
     """Split the body around each claim so the evidence panel can mark cited sentences. Returns (segs, claims_not_found_in_body)."""
+    clean_body = _clean_text(body)
     segs: list[dict] = []
     missing: list[dict] = []
-    rest = body
+    rest = clean_body
     for cl in claims:
-        i = rest.find(cl["t"])
+        t = _clean_text(cl.get("t", ""))
+        i = rest.find(t)
+        if i < 0:
+            i = rest.lower().find(t.lower())
         if i < 0:
             missing.append(cl)
             continue
         if i:
             segs.append({"t": rest[:i]})
-        segs.append({"t": cl["t"], "src": cl["src"]})
-        rest = rest[i + len(cl["t"]) :]
+        matched_text = rest[i : i + len(t)]
+        segs.append({"t": matched_text, "src": cl["src"]})
+        rest = rest[i + len(t) :]
     if rest:
         segs.append({"t": rest})
     return segs, missing
 
 
 def _comp_from_draft(d: Draft, channel: str) -> dict:
-    claims = [{"t": c.text, "src": c.source_id} for c in d.claims]
-    segs, missing = segs_from_claims(d.body, claims)
-    body = d.body
-    subject = d.subject if channel == "email" else None
+    body = _clean_text(d.body)
+    claims = [{"t": _clean_text(c.text), "src": c.source_id} for c in d.claims]
+    segs, missing = segs_from_claims(body, claims)
+    subject = _clean_text(d.subject) if channel == "email" else None
     comp = {"ch": channel, "subject": subject, "segs": segs, "body": body, "claims": [s for s in segs if s.get("src")]}
     comp["claims"] += [{**m, "src": "?"} for m in missing]
     return comp

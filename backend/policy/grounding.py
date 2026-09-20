@@ -49,9 +49,20 @@ def source_text(db: Db, src: str, p: dict, campaign_id: str) -> str | None:
 CALL_DURATIONS = {"10", "15", "20", "25", "30", "45", "60", "90"}
 
 
+def _known_ids_numbers(db: Db, p: dict, campaign_id: str) -> set[str]:
+    nums = set()
+    for f in [*p.get("facts", []), *p.get("rich", [])]:
+        nums |= _numbers(str(f.get("id", "")))
+    for ch in db.q("select id, origin_id from knowledge_chunks where scope = 'global' or campaign_id = %s", (campaign_id,)):
+        nums |= _numbers(str(ch.get("id", "")))
+        nums |= _numbers(str(ch.get("origin_id", "")))
+    return nums
+
+
 def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
     """comp holds segs, claims and body. Returns {total, bad: [{t, src, reason}], problems: []}."""
     bad: list[dict] = []
+    known_ids = _known_ids_numbers(db, p, campaign_id)
     for cl in comp["claims"]:
         src = cl["src"]
         if src == "?":
@@ -61,7 +72,7 @@ def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
         if text is None:
             bad.append({**cl, "reason": "unknown_source"})
             continue
-        missing = _numbers(cl["t"]) - _numbers(text) - CALL_DURATIONS
+        missing = _numbers(cl["t"]) - _numbers(text) - CALL_DURATIONS - known_ids - _numbers(src)
         if missing:
             bad.append({**cl, "reason": f"number_not_in_source: {sorted(missing)[0]}"})
     low = comp["body"].lower()
@@ -70,7 +81,7 @@ def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
             bad.append({"t": phrase, "src": "?", "reason": "banned_phrase"})
     uncited = _numbers(" ".join(s["t"] for s in comp["segs"] if not s.get("src")))
     stray = {n for n in uncited if len(n.strip("$%,")) >= 2 and not re.fullmatch(r"\d{1,2}(:\d\d)?", n)}
-    allowed_context = _numbers(comp["body"]) & ({"20", "15", "30", "90", "60", "two-page"} | CALL_DURATIONS)
+    allowed_context = _numbers(comp["body"]) & ({"20", "15", "30", "90", "60", "two-page"} | CALL_DURATIONS | known_ids)
     stray -= allowed_context
     if stray and not comp.get("allow_uncited_numbers"):
         bad.append({"t": sorted(stray)[0], "src": "?", "reason": "unsourced_number"})
