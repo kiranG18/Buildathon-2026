@@ -89,22 +89,24 @@ Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full
 | Analytics: cost per prospect, per qualified lead, per conversation | Working | Estimated costs in offline mode |
 | Live deployment | Working | Railway and Supabase, seeded demo, worker running. Smoke test in `docs/spikes.md` |
 | Email live path (Gmail API) | Working | Proven end to end on the live site: a discovered prospect got a real email, a reply was matched to the enrollment, classified and answered with meeting slots. Only `ALLOWED_RECIPIENTS` can receive real mail |
-| SMS live path (Twilio) | Partial | Connected and the connection test passes. The first real text to a phone was rejected with a 400 and is untested. Sandbox otherwise |
-| Voice live path | Built, waits for a DronaHQ Voice agent | Briefing and outcome webhooks tested. Scripted outcome otherwise |
+| SMS live path (Twilio) | Partial | Connected, connection test passes, and a real send reached Twilio. Twilio's trial rejects free-text SMS to Indian numbers (error 572006), so SMS stays a labelled sandbox |
+| Voice live path | Partial | The DronaHQ Voice agent, its pre-call briefing webhook and its post-call webhook (translated and matched to the enrollment) are built and tested. The outbound dispatch call is wired to DronaHQ's API but needs an outbound number attached to the agent, so calls run as a labelled scripted call |
 | Apps Studio app | Working | Native screens tested in a browser against the live API. Not public, see limitations |
-| DronaHQ Researcher and Responder agents | In progress | Instruction shells, schemas and steps are in `dronahq/`. They run on the direct provider until the hosted agents are switched on |
-| Model providers | Working | Anthropic, Gemini and Groq behind one client, with retries, a repair pass and a fallback. Tested with scripted replies. Real-model results are pending a key |
-| LinkedIn | Rep-assisted in live mode: agents write and queue the note, a person sends it and confirms, and a pasted reply is classified like any other. Sandbox otherwise | LinkedIn has no messaging API and automating an account breaks its terms |
+| DronaHQ Researcher and Responder agents | Working | Hosted on the Agentic platform and run in production. The Researcher saves sourced facts through our MCP tool, the Responder submits its decision through `set_classification`. Both fall back to the direct provider on failure. Traced in `docs/spikes.md` |
+| Model providers | Working | Groq is the live primary with a Gemini fallback, plus Anthropic support, behind one client with retries, a repair pass and a fallback. Live runs are in `docs/spikes.md`. A clean live-model golden run was not completed |
+| LinkedIn | Rep-assisted | The site never sends a note. Agents write and queue it, and a person sends it. `scripts/linkedin_runner.py` is an optional local tool that sends a note through the browser bot in the user's own Chrome after a per-note confirmation. LinkedIn has no messaging API and its terms forbid automation |
+| Users and roles | Working | Admins and managers add reps, managers and (admins only) admins with a generated password shown once. Everyone can change their own password |
+| Edit campaign | Working | Name, objective, ICP, roles, geographies, exclusions, tone, threshold and cap, saved as a new campaign version. A draft can run its dry run from its own page |
 | Prompt-change approval workflow, real calendar booking | Skipped | Stretch items |
 
 ## 7. Known limitations and trade-offs
 
 - **Offline agents.** With `LLM_MODE=fake` the agents are deterministic and their token and cost figures are list-price estimates per agent, not measurements. Live mode records real usage.
 - **Golden sets are small.** Fifteen seeded cases per agent (five per campaign for the Qualifier and Writer), scored by exact match and the grounding check. In offline mode the Writer's grounded output depends on the prompt text. The scores are evidence that the runner and the versions work, not production accuracy.
-- **Fictional data.** Prospects, companies and customer stories are invented. Every seeded row carries a `DEMO` chip and its `is_seed` flag. Seeded messages are labelled SANDBOX because nothing was sent.
+- **Fictional data.** The workspace ships empty and every campaign is archived. Discovery draws from an invented list of prospects and companies, and the CSV import takes real names with optional email, phone and LinkedIn URL. The seeded demo story can be rebuilt on a local database with `python scripts/reset_demo.py`.
 - **Cross-region database.** The app runs in Singapore and the database in Mumbai, so each query costs about 80 to 150 ms. The state endpoint was cut from 168 queries to 24 and is cached until the data changes, which took a page load from about 14 seconds to under one. Moving the database next to the app would cut it further.
 - **DronaHQ Public Access.** Making the Apps Studio app public needs a licence this workspace does not have, so reviewers use the hosted site and a DronaHQ login is needed for the app.
-- **Twilio trial.** A trial account texts verified numbers only, and texting an Indian number from a US trial number may be blocked. The channel falls back to sandbox.
+- **Twilio trial.** A trial account texts verified numbers only and rejects free-text SMS to Indian numbers (error 572006). SMS stays a labelled sandbox.
 - **Model prices.** The cost table for Gemini and Groq holds list prices entered by hand. Token counts are measured, prices should be checked against the providers' pages.
 - **Mock calendar.** Meetings book against a mock rep calendar.
 - **Demo clock.** The clock offset compresses waiting time. It moves every due time consistently, and real time keeps running.

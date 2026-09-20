@@ -130,6 +130,12 @@ async function cfSave(){
  return cf.id;
 }
 ACT.cfSave=async()=>{try{const id=await cfSave();if(id){toast('Saved as a Draft.');go('/campaigns/'+id+'/overview')}}catch(e){toast(e.message,{bad:true})}};
+ACT.dryNow=async t=>{const id=idOf(t);if((UI.dry||{})[id])return;UI.dry=Object.assign(UI.dry||{},{[id]:true});repaint();toast('Running the dry run on 3 sample prospects. This can take up to a minute.');
+ try{const r=await api.post('/campaigns/'+id+'/dry-run');UI.dry[id]=false;await hydrate(true);repaint();
+  if(r.grounding_passed){toast('Dry run passed. Every claim in the 3 samples has evidence.');return}
+  const bad=(r.results||[]).filter(x=>!x.ok);
+  openModal(`<h2>The dry run did not pass</h2><p class="muted" style="margin:6px 0 12px">Nothing was stored or sent. Fix this and run it again.</p><div class="col gap8">${bad.map(x=>`<div class="banner bad" style="font-weight:450">${esc(x.agent)}: ${esc(x.output_summary)}</div>`).join('')||'<div class="banner bad">The grounding check failed.</div>'}</div><div class="mf"><button class="btn pri" data-a="closeModal">Close</button></div>`)
+ }catch(e){UI.dry[id]=false;repaint();toast(e.message,{bad:true})}};
 ACT.cfActivate=async()=>{
  if(!cfCk(UI.cf).every(x=>x.ok)){toast('Finish the checklist first.',{bad:true});return}
  try{const id=await cfSave();if(!id)return;await api.post('/campaigns/'+id+'/activate');UI.cf=null;await hydrate(true);toast('Campaign is Live. Add prospects with Simulate discovery.');go('/campaigns/'+id+'/overview')}
@@ -258,6 +264,15 @@ ACT.repOff=async t=>{
  const others=S.users.filter(x=>x.role==='Rep'&&x.active&&x.id!==u.id);
  openModal(`<h2>Offboard ${esc(u.name)}</h2><p class="muted" style="margin:6px 0 10px">This affects ${aff.campaigns.length} campaign${aff.campaigns.length===1?'':'s'}, ${aff.enrollments} open prospects and ${aff.open_escalations} open escalations. Pick who takes them, or leave them unassigned to see the no_rep_available alert.</p><div class="row wrap" style="margin-bottom:12px">${aff.campaigns.map(c=>campChip(c,true)).join('')||'<span class="faint">No campaigns</span>'}</div><div class="field"><select class="sel" id="ro1">${others.map(x=>`<option value="${x.id}">${esc(x.name)} (${x.label})</option>`).join('')}<option value="">Nobody</option></select></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn dan" id="ro2">Offboard</button></div>`);
  $('#ro2').onclick=()=>{const to=$('#ro1').value;closeModal();run(()=>api.post('/reps/'+u.id+'/offboard',{replacement_rep_id:to||null}),{ok:to?`Offboarded. Items moved to ${U(to).name}.`:'Offboarded. Campaigns without a rep now alert on Command Center.'})};
+};
+ACT.repDel=async t=>{
+ const u=U(idOf(t));let aff;
+ try{aff=(await api.get('/reps/'+u.id+'/affected')).affected}catch(e){toast(e.message,{bad:true});return}
+ const work=aff.campaigns.length||aff.enrollments||aff.open_escalations;
+ const others=S.users.filter(x=>x.role==='Rep'&&x.active&&x.id!==u.id);
+ if(work&&!others.length){toast('This rep still holds work and there is no other active rep to take it. Add a rep first.',{bad:true});return}
+ openModal(`<h2>Delete ${esc(u.name)}</h2><p class="muted" style="margin:6px 0 10px">${work?`This rep holds ${aff.campaigns.length} campaign${aff.campaigns.length===1?'':'s'}, ${aff.enrollments} open prospects and ${aff.open_escalations} open escalations. Pick who takes them over.`:'This rep holds no work.'} The account is removed and cannot sign in again. If past records refer to them, the account is kept as offboarded so the history still shows who handled it.</p>${work?`<div class="field"><select class="sel" id="rd1">${others.map(x=>`<option value="${x.id}">${esc(x.name)} (${x.label})</option>`).join('')}</select></div>`:''}<div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="rd2" style="background:var(--bad,#b3261e);border-color:transparent">Delete rep</button></div>`);
+ $('#rd2').onclick=()=>{const to=work?$('#rd1').value:'';closeModal();run(()=>api.del('/reps/'+u.id+(to?'?replacement_rep_id='+encodeURIComponent(to):'')),{ok:r=>r.deleted?`${u.name} deleted.`:`${u.name} kept as offboarded because past records refer to them.`})};
 };
 ACT.supAdd=()=>{const v=$('#sup2').value.trim();if(!v){toast('Enter an address, domain or number.',{bad:true});return}run(()=>api.post('/suppression',{kind:$('#sup1').value,value:v,reason:$('#sup3').value||'Added by hand'}),{ok:'Added to the suppression list.'})};
 ACT.supDel=t=>{const x=S.suppress.find(v=>v.id===idOf(t));confirmBox('Remove from suppression',`${esc(x.value)} can be contacted again after this. Only do this when the person asked you to.`,'Remove',()=>run(()=>api.del('/suppression/'+x.id),{ok:'Removed.'}),true)};

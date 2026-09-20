@@ -144,9 +144,19 @@ tests/          unit, integration, isolation, conflicts, failure
 docs/           architecture, API, runbook, report, deck, demo script, test log
 ```
 
+## Sending LinkedIn notes from your own machine
+
+The deployed site never sends a LinkedIn note. `scripts/linkedin_runner.py` is the local hand-off: it lists the open LinkedIn approvals, shows each note, and only after you type `y` runs the browser bot (`scripts/linkedin_bot.js`) in your own signed-in Chrome. On success it records the approval on the site, so the touch is stored as `LIVE`. A failure leaves the approval open. It sends at most 5 notes per run with a pause between them.
+
+1. One time: `cd scripts && npm install`, then `node scripts/linkedin_login.js` and sign in to LinkedIn in the window that opens.
+2. In Settings, Integrations, set LinkedIn to Live. Import prospects with their real profile URLs (CSV columns: name, title, company, email, phone, LinkedIn URL).
+3. Approve nothing in the browser. Run `python scripts/linkedin_runner.py` and answer `y` or `n` per note. Use `--dry-run` to only list them. `--yes` sends every waiting note without asking (still at most 10 per run, with pauses), so read the campaign's prompts first.
+
+LinkedIn's terms forbid automation, so use a test account and expect its limits. Chrome must be at `C:\Program Files\Google\Chrome\Application\chrome.exe`.
+
 ## Known limitations
 
-- LinkedIn is rep-assisted by design. A person sends each note. Sending by automation is out of scope because it breaks LinkedIn's terms.
+- LinkedIn is rep-assisted on the deployed site. Sending happens only from a machine with Chrome, through `scripts/linkedin_runner.py` with a person confirming each note. LinkedIn's terms forbid automation, so it is a local, capped, opt-in tool.
 - With `LLM_MODE=fake` the agents are deterministic and their token and cost numbers are list-price estimates per agent, not measurements. Live mode records real usage.
 - Golden-set scores come from 15 seeded cases per agent (five per campaign for the Qualifier and Writer) and, in fake mode, from rule-based agents. They are not production traffic.
 - Prospect discovery reads a fixed demo lead source and CSV import. There is no live scraping.

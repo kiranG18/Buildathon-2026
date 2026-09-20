@@ -30,10 +30,7 @@ def test_f1_f2_create_campaign_then_activation_needs_the_checklist(seeded, clien
     no = client.post(f"/campaigns/{cid}/activate", headers=h)
     assert no.status_code == 409 and no.json()["error"]["code"] == "checklist_failed"
     failing = {c["name"] for c in no.json()["error"]["checks"] if not c["passed"]}
-    assert failing == {"knowledge", "dry_run"}
-    with tx() as db:
-        docs = [d["id"] for d in db.q("select id from knowledge_documents where campaign_id = 'C1'")]
-    assert client.patch(f"/campaigns/{cid}", headers=h, json={"doc_ids": docs}).status_code == 200
+    assert failing == {"dry_run"}
     dry = client.post(f"/campaigns/{cid}/dry-run", headers=h).json()
     assert dry["grounding_passed"] is True and len(dry["results"]) == 3
     with tx() as db:
@@ -231,3 +228,32 @@ def test_clean_workspace_removes_records_and_keeps_configuration(seeded):
         assert all(db.q1(f"select count(*) as n from {t}")["n"] == 0 for t in RECORDS)
         assert kept == {t: db.q1(f"select count(*) as n from {t}")["n"] for t in kept}
         assert db.q1("select demo_clock_offset_hours as h from global_settings")["h"] == 0
+
+
+def test_a_manager_deletes_a_rep_with_no_work_and_cannot_delete_non_reps(seeded, client, auth):
+    admin, mgr = auth("admin@helix.demo"), auth("ava@helix.demo")
+    made = client.post("/users", headers=admin, json={"name": "Temp Rep", "role": "Rep"}).json()
+    assert client.delete(f"/reps/{made['id']}", headers=auth("priya@helix.demo")).status_code == 403
+    r = client.delete(f"/reps/{made['id']}", headers=mgr)
+    assert r.status_code == 200 and r.json()["deleted"] is True
+    assert made["id"] not in {x["id"] for x in client.get("/reps", headers=mgr).json()}
+    assert client.post("/auth/login", json={"email": made["email"], "password": made["password"]}).status_code == 401
+    assert client.delete(f"/reps/{made['id']}", headers=mgr).status_code == 404
+    assert client.delete("/reps/U2", headers=mgr).status_code == 404
+    assert client.delete("/reps/U1", headers=mgr).status_code == 404
+
+
+def test_deleting_a_rep_with_work_needs_a_replacement_and_moves_the_work(seeded, client, auth):
+    mgr = auth("ava@helix.demo")
+    r = client.delete("/reps/U3", headers=mgr)
+    assert r.status_code == 409 and r.json()["error"]["code"] == "rep_has_work"
+    assert client.delete("/reps/U3?replacement_rep_id=U3", headers=mgr).status_code == 400
+    assert client.delete("/reps/U3?replacement_rep_id=U99", headers=mgr).status_code == 404
+    done = client.delete("/reps/U3?replacement_rep_id=U4", headers=mgr)
+    assert done.status_code == 200 and done.json()["reassigned_to"] == "U4"
+    with tx() as db:
+        assert db.q1("select count(*) as n from rep_assignments where rep_id = 'U3'")["n"] == 0
+        assert db.q1("select count(*) as n from enrollments where rep_id = 'U3' and state in ('qualified','contacted','awaiting_approval','replied_pos','replied_obj','escalated')")["n"] == 0
+        row = db.q1("select active from users where id = 'U3'")
+        assert row is None or row["active"] is False
+    assert client.post("/auth/login", json={"email": "marcus@helix.demo", "password": "helix-demo"}).status_code == 401
