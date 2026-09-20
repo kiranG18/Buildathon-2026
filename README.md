@@ -90,6 +90,8 @@ Everything runs offline by default (`LLM_MODE=fake`): deterministic agents, a lo
 | `CHANNEL_MODE_EMAIL`, `CHANNEL_MODE_SMS`, `CHANNEL_MODE_LINKEDIN`, `CHANNEL_MODE_VOICE` | optional | Starting mode, `live` or `sandbox`. Settings can change it at runtime |
 | `ALLOWED_RECIPIENTS` | production | Domains, addresses and phone numbers the adapters may contact. Anything else is refused |
 | `WORKER_CAMPAIGN_ID` | optional | Limit one worker process to one campaign |
+| `APOLLO_API_KEY`, `HUNTER_API_KEY` | optional | Apollo company enrichment and Hunter email finder for real-prospect discovery. Without them discovery uses the seeded demo pool |
+| `LINKEDIN_LI_AT` | local only | LinkedIn session cookie for the local browser tools in `scripts/`. Never set it on the deployed site |
 
 ## Channel modes
 
@@ -130,7 +132,7 @@ Covered: every gate check, the seven conflict cases and the send race, pause iso
 
 ```text
 backend/        the deployable: api/, core/, orchestrator/ (state machine, worker, controls, replies),
-                policy/ (gate, grounding), conflicts/ (claims and ladder), channels/, mcp/, analytics/
+                policy/ (gate, grounding), conflicts/ (claims and ladder), channels/, integrations/ (Apollo, Hunter), mcp/, analytics/
 agents/         the AI layer: llm_client, prompt renderer, memory, one module per agent, output models, schemas/
 rag/            chunking, embeddings, ingest, hybrid retrieval
 evals/          golden sets, runner, prompt coach
@@ -139,7 +141,7 @@ seed/           the demo workspace, dumped from the prototype's own seed driver
 knowledge/      markdown knowledge files with frontmatter (global/ and one folder per campaign)
 frontend/       the control plane UI: css/, js/, fonts/ (Onest and IBM Plex Mono, self-hosted), prototype/ (the reference)
 dronahq/        agent shells, app spec, Vibe Coding prompts, screenshots
-scripts/        bootstrap, reset, seed loader, schema export, UI checks
+scripts/        bootstrap, reset, clean workspace, seed loader, schema export, UI checks, local LinkedIn tools (runner, bot, finder)
 tests/          unit, integration, isolation, conflicts, failure
 docs/           architecture, API, runbook, report, deck, demo script, test log
 ```
