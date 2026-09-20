@@ -82,7 +82,7 @@ Everything runs offline by default (`LLM_MODE=fake`): deterministic agents, a lo
 | `LLM_FALLBACK_PROVIDER`, `LLM_FALLBACK_KEY`, `LLM_FALLBACK_MODEL` | optional | Second provider (`groq` or `openai`) after two failed attempts. Groq reads `GROQ_API_KEY` when no fallback key is set |
 | `EMBEDDINGS_API_KEY` | optional | Hosted embeddings (1536 dimensions). Without it a deterministic local embedder runs |
 | `DRONAHQ_RESEARCHER_WEBHOOK_URL`, `DRONAHQ_RESPONDER_WEBHOOK_URL`, `DRONAHQ_API_KEY` | DronaHQ | Webhook trigger URLs and the API key |
-| `DRONAHQ_VOICE_AGENT_ID`, `DRONAHQ_VOICE_CALL_URL` | DronaHQ voice | Voice agent and the call-start URL |
+| `DRONAHQ_VOICE_AGENT_ID`, `DRONAHQ_VOICE_FROM_NUMBER`, `DRONAHQ_VOICE_CALL_URL` | DronaHQ voice | Voice agent id, the DronaHQ phone number calls come from, and the dispatch URL (default `https://agents-backend.dronahq.com/voice/outbound/dispatch`). `DRONAHQ_API_KEY` authorises the call |
 | `AGENT_PROVIDER_RESEARCHER`, `AGENT_PROVIDER_RESPONDER`, `AGENT_PROVIDER_CALLER` | optional | `dronahq` or `direct`. Flip one agent in one deploy |
 | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_SENDER`, `SEED_INBOX_BASE` | live email | Sandbox Gmail account |
 | `SMTP_HOST`, `SMTP_USER`, `SMTP_APP_PASSWORD` | fallback | SMTP app password if Gmail OAuth fails |

@@ -20,7 +20,7 @@ def main() -> int:
         ("Hosted embeddings", bool(s.embeddings_api_key)),
         ("DronaHQ Researcher", bool(s.dronahq_researcher_webhook_url) and s.agent_provider_researcher == "dronahq"),
         ("DronaHQ Responder", bool(s.dronahq_responder_webhook_url) and s.agent_provider_responder == "dronahq"),
-        ("DronaHQ Voice", bool(s.dronahq_voice_agent_id and s.dronahq_voice_call_url)),
+        ("DronaHQ Voice", bool(s.dronahq_api_key and s.dronahq_voice_agent_id and s.dronahq_voice_from_number)),
         ("Gmail (live email)", all([s.gmail_client_id, s.gmail_client_secret, s.gmail_refresh_token, s.gmail_sender])),
         ("SMTP fallback", all([s.smtp_host, s.smtp_user, s.smtp_app_password])),
         ("Twilio SMS", all([s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number])),

@@ -201,6 +201,42 @@ def test_a11_dronahq_payload_matches_by_dialled_number_and_defaults_the_disposit
     assert spoke["enrollment_id"] == e["id"] and spoke["disposition"] == "callback" and silent["disposition"] == "voicemail"
 
 
+def test_a11_a_live_call_is_dispatched_to_dronahq_and_the_briefing_finds_it(seeded, client, monkeypatch):
+    sent = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        sent["url"], sent["key"], sent["body"] = str(req.url), req.headers.get("api-key"), json.loads(req.content)
+        return httpx.Response(200, json={"ok": True})
+
+    s = get_settings()
+    for name, val in (("dronahq_api_key", "k"), ("dronahq_voice_agent_id", "agent-1"), ("dronahq_voice_from_number", "+15550001111")):
+        monkeypatch.setattr(s, name, val)
+    dronahq.set_transport(httpx.MockTransport(handler))
+    try:
+        e = enrollment_of("noor-haddad", "C3")
+        with tx() as db:
+            db.x("update prospects set phone = '+918789187914' where id = 'noor-haddad'")
+            assert dronahq.trigger_call(db, enrollment(db, e["id"]), {"phone": "+918789187914"}) is True
+            db.x("insert into calls (id, enrollment_id, prospect_id, at, disposition, mode) values ('CL-x', %s, 'noor-haddad', now(), 'awaiting_outcome', 'live')", (e["id"],))
+        assert sent["url"] == s.dronahq_voice_call_url and sent["key"] == "k"
+        assert sent["body"] == {"destination_phonenumber": ["+918789187914"], "source_phone_number": "+15550001111", "agent_id": "agent-1", "agent_overrides": {}}
+        assert client.get("/voice/briefing/current", headers=SECRET).json()["prospect"]["name"] == "Noor Haddad"
+        dronahq.set_transport(httpx.MockTransport(lambda req: httpx.Response(400, json={"error": "no number"})))
+        with tx() as db:
+            assert dronahq.trigger_call(db, enrollment(db, e["id"]), {"phone": "+918789187914"}) is False
+    finally:
+        dronahq.set_transport(None)
+
+
+def test_a11_no_call_is_dispatched_without_a_from_number(seeded, monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "dronahq_api_key", "k")
+    monkeypatch.setattr(s, "dronahq_voice_agent_id", "agent-1")
+    monkeypatch.setattr(s, "dronahq_voice_from_number", "")
+    with scratch() as db:
+        assert dronahq.trigger_call(db, enrollment(db, enrollment_of("noor-haddad", "C3")["id"]), {"phone": "+918789187914"}) is False
+
+
 def test_af6_a_call_without_an_outcome_becomes_unknown_outcome_and_escalates(seeded):
     from datetime import timedelta
 

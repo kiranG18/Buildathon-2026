@@ -167,16 +167,17 @@ def respond(db: Db, e: dict, p: dict, c: dict, text: str) -> Reading | None:
 
 
 def trigger_call(db: Db, e: dict, p: dict) -> bool:
-    """Start a live call on the DronaHQ Voice agent. False when telephony is not configured, so the caller stays in sandbox."""
+    """Start a live call through DronaHQ's outbound dispatch API. False when telephony is not configured or the dispatch is refused, so the caller stays in sandbox."""
     s = get_settings()
-    if not (s.dronahq_voice_agent_id and s.dronahq_voice_call_url and p["phone"]):
+    if not (s.dronahq_api_key and s.dronahq_voice_agent_id and s.dronahq_voice_from_number and p["phone"]):
         return False
-    payload = {"agent_id": s.dronahq_voice_agent_id, "to": p["phone"], "metadata": {"enrollment_id": e["id"], "briefing_url": f"{s.base_url}/voice/briefing/{e['id']}"}}
+    payload = {"destination_phonenumber": [p["phone"]], "source_phone_number": s.dronahq_voice_from_number, "agent_id": s.dronahq_voice_agent_id, "agent_overrides": {}}
     try:
         r = _post(s.dronahq_voice_call_url, payload, timeout=15)
         r.raise_for_status()
         return True
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        log().warning("dronahq voice dispatch failed", extra={"event": "voice_dispatch_failed", "reason_code": type(exc).__name__})
         return False
 
 

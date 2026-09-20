@@ -48,6 +48,14 @@ def briefing(db: Db, enrollment_id: str) -> dict:
     }
 
 
+def pending_enrollment(db: Db) -> str:
+    """The dispatch API takes no per-call variables, so the pre-call webhook asks for the call still awaiting an outcome. One live call at a time."""
+    row = db.q1("select enrollment_id from calls where disposition = 'awaiting_outcome' order by at desc limit 1")
+    if not row:
+        raise NotFound("No call is waiting for a briefing")
+    return row["enrollment_id"]
+
+
 def outcome_from_dronahq(db: Db, payload: dict) -> dict:
     """Translate DronaHQ's post-call payload into our outcome shape.
 

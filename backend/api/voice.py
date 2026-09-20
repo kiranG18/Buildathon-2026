@@ -15,8 +15,8 @@ class OutcomeBody(CallOutcome):
 
 @router.get("/voice/briefing/{enrollment_id}", dependencies=[Depends(webhook_guard)])
 def briefing(enrollment_id: str, db: Db = Depends(db_dep)) -> dict:
-    """DronaHQ pre-call webhook: everything the voice agent may say, fetched as the call starts."""
-    return voice.briefing(db, enrollment_id)
+    """DronaHQ pre-call webhook: everything the voice agent may say, fetched as the call starts. `current` means the call we most recently placed and are still waiting on."""
+    return voice.briefing(db, voice.pending_enrollment(db) if enrollment_id == "current" else enrollment_id)
 
 
 @router.post("/voice/outcome", dependencies=[Depends(webhook_guard)])

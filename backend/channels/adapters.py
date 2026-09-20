@@ -302,7 +302,7 @@ def sync_integrations(db: Db) -> None:
     can_live = {
         "gmail": "email" in REGISTRY,
         "twilio": "sms" in REGISTRY,
-        "voice": bool(s.dronahq_voice_agent_id and s.dronahq_voice_call_url),
+        "voice": bool(s.dronahq_api_key and s.dronahq_voice_agent_id and s.dronahq_voice_from_number),
         "agents": bool(s.dronahq_researcher_webhook_url or s.dronahq_responder_webhook_url),
         "llm": bool({"anthropic": s.anthropic_api_key, "gemini": s.gemini_api_key, "groq": s.groq_api_key}.get(s.llm_provider)),
         "linkedin": True,
