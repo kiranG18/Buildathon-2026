@@ -100,3 +100,11 @@ Findings:
 - The client now waits as long as `Retry-After` asks and asks gpt-oss for low reasoning effort. A second full run with that pacing was started and stopped by the system on low memory, so a clean live Writer score does not exist yet.
 - Cost per call was tiny (about $0.00008 for a small classification call at list prices). The prices in the code are unverified.
 - The scores in the deck and the Prompts screen come from the deterministic mode until a clean live run exists.
+
+## Live model in production and Twilio (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Production on `LLM_PROVIDER=groq`, `LLM_MODE=live` | The LLM integration shows live and OK. One discovered prospect (C1) went from research to qualified (score 72) to a real email in about a minute. The Writer used the model, not the generic-safe fallback, and the proof point cites knowledge chunk K-207 |
+| Cost of that prospect in model calls | Qualifier $0.00014, Sequencer $0.00042, Writer $0.0016, at the list prices in `agents/llm_client.py` (unverified prices, real token counts). The Researcher step is a direct enrichment estimate |
+| Twilio SMS to an Indian number | Rejected with error 572006, "Invalid template name. Trial accounts can only use predefined SMS templates". A trial account cannot send free text to +91 numbers. The account, credentials and connection test are fine. SMS stays in sandbox unless a verified non-Indian number is available |
