@@ -108,44 +108,111 @@ async function run() {
       throw new Error('AUTH_REQUIRED: LinkedIn requires login or li_at cookie is missing/expired');
     }
 
-    // Look for Connect button
-    console.log('[LinkedIn Bot] Scanning for Connect button on profile...');
+    console.log('[LinkedIn Bot] Inspecting profile header actions...');
 
-    // Method 1: Look for direct Connect button
-    let connectBtn = await page.$('button[aria-label*="Invite"][aria-label*="to connect"]');
-    
-    // Method 2: Check buttons by text content
-    if (!connectBtn) {
-      const buttons = await page.$$('main button');
-      for (const btn of buttons) {
-        const text = await page.evaluate(el => el.innerText.trim(), btn);
-        if (text === 'Connect') {
-          connectBtn = btn;
-          break;
-        }
+    // Detect relationship and action buttons strictly within the hero profile section
+    const profileState = await page.evaluate(() => {
+      // Find elements with Connect or Message in the top section
+      const buttons = Array.from(document.querySelectorAll('main div.ph5 button, main div.pvs-profile-actions button, main section:first-of-type button'));
+      const links = Array.from(document.querySelectorAll('main div.ph5 a, main div.pvs-profile-actions a, main section:first-of-type a'));
+
+      const isFirstDegree = document.body.innerText.includes('· 1st') || document.body.innerText.includes('1st degree');
+      const isPending = buttons.some(b => (b.innerText || '').trim() === 'Pending');
+      const hasConnect = buttons.some(b => (b.innerText || '').trim() === 'Connect');
+      const hasMessage = links.some(a => (a.innerText || '').trim() === 'Message' && (a.getAttribute('href') || '').includes('messaging'));
+
+      return { isFirstDegree, isPending, hasConnect, hasMessage };
+    });
+
+    console.log(`[LinkedIn Bot] Profile state: 1st Degree=${profileState.isFirstDegree}, Pending=${profileState.isPending}, Has Connect=${profileState.hasConnect}, Has Message=${profileState.hasMessage}`);
+
+    // CASE 1: Already pending
+    if (profileState.isPending) {
+      console.log('[LinkedIn Bot] An invitation to this profile is already pending. No action needed.');
+      return;
+    }
+
+    // CASE 2: Already 1st-degree connection -> Send direct message!
+    if (profileState.isFirstDegree && profileState.hasMessage) {
+      console.log('[LinkedIn Bot] Target is already a 1st-degree connection. Opening message thread...');
+
+      // Find the Message button link
+      const messageLink = await page.$('a[href*="/messaging/compose/"]');
+      if (!messageLink) {
+        throw new Error('MESSAGE_LINK_NOT_FOUND: Could not find direct Message link');
+      }
+
+      await messageLink.click();
+      console.log('[LinkedIn Bot] Clicked Message button. Waiting for chat dock...');
+      await sleep(3000);
+
+      // Find chat text area
+      const chatInput = await page.$('.msg-form__contenteditable, div[role="textbox"][contenteditable="true"]');
+      if (!chatInput) {
+        await page.screenshot({ path: 'linkedin_chat_dock_missing.png' });
+        throw new Error('CHAT_INPUT_NOT_FOUND: Could not find chat input area in messaging dock');
+      }
+
+      console.log('[LinkedIn Bot] Typing direct message into chat dock...');
+      await chatInput.click();
+      await sleep(500);
+      await page.keyboard.type(cleanNote, { delay: 30 });
+      await sleep(1000);
+
+      // Click Send button in chat form
+      console.log('[LinkedIn Bot] Finding Send button in chat form...');
+      const sendChatBtn = await page.$('button.msg-form__send-button, form.msg-form button[type="submit"]');
+      if (!sendChatBtn) {
+        await page.screenshot({ path: 'linkedin_chat_send_missing.png' });
+        throw new Error('CHAT_SEND_NOT_FOUND: Could not find Send button in chat dock');
+      }
+
+      await sendChatBtn.click();
+      await sleep(2500);
+
+      console.log('[LinkedIn Bot] SUCCESS! Direct LinkedIn message sent to 1st-degree connection.');
+      await page.screenshot({ path: 'linkedin_success.png' });
+      console.log(JSON.stringify({
+        status: 'success',
+        type: 'direct_message',
+        profile: profileUrl,
+        note: cleanNote,
+        timestamp: new Date().toISOString()
+      }));
+      return;
+    }
+
+    // CASE 3: 2nd or 3rd-degree connection -> Send connection invite with note!
+    console.log('[LinkedIn Bot] Searching for Connect button on profile header...');
+    let connectBtn = null;
+
+    // Direct connect button inside profile header
+    const headerButtons = await page.$$('main div.ph5 button, main div.pvs-profile-actions button, main section:first-of-type button');
+    for (const btn of headerButtons) {
+      const text = await page.evaluate(el => el.innerText.trim(), btn);
+      if (text === 'Connect') {
+        connectBtn = btn;
+        break;
       }
     }
 
-    // Method 3: Check inside "More" / "..." button
+    // Check inside "More actions" in the hero card
     if (!connectBtn) {
-      console.log('[LinkedIn Bot] Checking More actions dropdown...');
-      let moreBtn = await page.$('button[aria-label="More actions"]');
-      if (!moreBtn) {
-        const buttons = await page.$$('main button');
-        for (const btn of buttons) {
-          const text = await page.evaluate(el => el.innerText.trim(), btn);
-          if (text === 'More') {
-            moreBtn = btn;
-            break;
-          }
+      console.log('[LinkedIn Bot] Direct Connect button not in hero; checking hero "More" dropdown...');
+      let moreBtn = null;
+      for (const btn of headerButtons) {
+        const text = await page.evaluate(el => (el.getAttribute('aria-label') || el.innerText || '').trim(), btn);
+        if (text === 'More' || text.includes('More actions')) {
+          moreBtn = btn;
+          break;
         }
       }
 
       if (moreBtn) {
         await moreBtn.click();
-        await sleep(1000);
+        await sleep(1200);
 
-        // Find Connect inside the opened dropdown
+        // Find Connect inside the opened dropdown menu
         const dropdownItems = await page.$$('div[role="dialog"] div[role="button"], div[role="menu"] div[role="button"], div[role="dialog"] span, div[role="menu"] span');
         for (const item of dropdownItems) {
           const text = await page.evaluate(el => el.innerText.trim(), item);
@@ -158,17 +225,17 @@ async function run() {
     }
 
     if (!connectBtn) {
-      console.warn('[LinkedIn Bot] Connect button not found on profile. Profile might already be connected, pending, or Follow-only.');
+      console.warn('[LinkedIn Bot] Connect button not found on profile. Profile may be Follow-only or already connected.');
       await page.screenshot({ path: 'linkedin_no_connect_btn.png' });
-      throw new Error('CONNECT_NOT_FOUND: Could not find Connect button on profile');
+      throw new Error('CONNECT_NOT_FOUND: Could not find Connect button on profile header');
     }
 
     console.log('[LinkedIn Bot] Found Connect button. Clicking...');
     await connectBtn.click();
     await sleep(2000);
 
-    // Look for "Add a note" modal button
-    console.log('[LinkedIn Bot] Looking for "Add a note" button in invitation modal...');
+    // Look for "Add a note" button in invitation modal
+    console.log('[LinkedIn Bot] Looking for "Add a note" button in modal...');
     let addNoteBtn = null;
     const modalButtons = await page.$$('div[role="dialog"] button');
     for (const btn of modalButtons) {
@@ -192,7 +259,7 @@ async function run() {
       }
     }
 
-    // Now find and click "Send"
+    // Click "Send" in invitation modal
     console.log('[LinkedIn Bot] Looking for Send button in modal...');
     let sendBtn = null;
     const sendButtons = await page.$$('div[role="dialog"] button');
@@ -218,6 +285,7 @@ async function run() {
 
     console.log(JSON.stringify({
       status: 'success',
+      type: 'connection_invitation',
       profile: profileUrl,
       note: cleanNote,
       timestamp: new Date().toISOString()
