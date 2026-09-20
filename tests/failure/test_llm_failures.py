@@ -1,6 +1,7 @@
 """LLM failure injection: every failure ends in a handled state, never a crash and never an auto-qualify."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -202,7 +203,7 @@ def test_gemini_provider_maps_the_model_role_asks_for_json_and_reads_usage(seede
         seen.update(url=url, headers=headers, body=json)
         return FakeHttpReply({"candidates": [{"content": {"parts": [{"text": VALID_QUAL}]}}], "usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 30}})
 
-    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_client, "_get_http_client", lambda: SimpleNamespace(post=fake_post))
     res = run()
     assert res.provider == "gemini" and res.model == llm_client.GEMINI_FAST and (res.tokens_in, res.tokens_out) == (120, 30)
     assert seen["url"].endswith(f"/models/{llm_client.GEMINI_FAST}:generateContent") and seen["headers"] == {"x-goog-api-key": "test-key"}
@@ -225,7 +226,7 @@ def test_groq_takes_over_when_the_primary_provider_has_no_key(seeded, live, monk
         seen.update(url=url, headers=headers, body=json)
         return FakeHttpReply({"choices": [{"message": {"content": VALID_QUAL}}], "usage": {"prompt_tokens": 90, "completion_tokens": 25}})
 
-    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_client, "_get_http_client", lambda: SimpleNamespace(post=fake_post))
     monkeypatch.setattr(llm_client.time, "sleep", lambda *_: None)
     res = run()
     assert res.provider == "fallback" and seen["url"] == "https://api.groq.com/openai/v1/chat/completions"
@@ -249,7 +250,7 @@ def test_a_429_with_retry_after_waits_that_long_and_does_not_use_up_an_attempt(s
         assert json["reasoning_effort"] == "low" and json["model"] == llm_client.GROQ_FAST
         return FakeHttpReply({"choices": [{"message": {"content": VALID_QUAL}}], "usage": {"prompt_tokens": 50, "completion_tokens": 20}})
 
-    monkeypatch.setattr(llm_client.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_client, "_get_http_client", lambda: SimpleNamespace(post=fake_post))
     monkeypatch.setattr(llm_client.time, "sleep", lambda s: waits.append(s))
     res = run()
     assert res.provider == "groq" and replies == [429, 429, 429, 429, 200] and waits == [3.0, 3.0, 3.0, 3.0]
