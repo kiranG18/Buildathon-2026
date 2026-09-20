@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "properties": {
+    "facts": {
+      "items": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "statement",
+          "source_url",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "trigger_events": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "pain_hypotheses": {
+      "items": {
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "supporting_fact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "facts",
+    "gaps"
+  ]
+}

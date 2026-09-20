@@ -1,0 +1,90 @@
+{
+  "type": "object",
+  "properties": {
+    "classification": {
+      "enum": [
+        "interested",
+        "meeting_request",
+        "objection",
+        "question",
+        "not_now",
+        "not_interested",
+        "unsubscribe",
+        "out_of_office",
+        "wrong_person",
+        "other"
+      ],
+      "type": "string"
+    },
+    "sentiment": {
+      "enum": [
+        "positive",
+        "neutral",
+        "negative"
+      ],
+      "type": "string"
+    },
+    "objection_type": {
+      "type": "string"
+    },
+    "next_action": {
+      "enum": [
+        "reply",
+        "book_meeting",
+        "escalate",
+        "nurture",
+        "stop"
+      ],
+      "type": "string"
+    },
+    "reply_draft": {
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "prospect_fact",
+              "knowledge"
+            ],
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "source_type",
+          "source_id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "slots_offered": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "escalation_reason": {
+      "type": "string"
+    },
+    "summary_update": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "classification",
+    "next_action",
+    "confidence"
+  ]
+}
