@@ -212,18 +212,25 @@ async function run() {
     await sleep(1500);
 
     const results = await page.evaluate((wantCompany, wantLimit) => {
-      const cards = Array.from(document.querySelectorAll('li.reusable-search__result-container, div[data-chameleon-result-urn]'));
+      // LinkedIn's search markup changes and uses generated class names, so read the profile links themselves instead of card classes.
+      const skip = /^(view|connect|message|follow|status is|premium|try)/i;
+      const noise = /^([•·]|1st|2nd|3rd|connect$|message$|follow$|mutual|.*mutual connection)/i;
+      const seen = new Set();
       const out = [];
-      for (const card of cards) {
-        const link = card.querySelector('a.app-aware-link[href*="/in/"]');
-        if (!link) continue;
-        const href = (link.getAttribute('href') || '').split('?')[0];
-        const nameEl = card.querySelector('span[aria-hidden="true"]');
-        const name = (nameEl ? nameEl.innerText : link.innerText || '').trim();
-        const subtitleEl = card.querySelector('.entity-result__primary-subtitle, div.t-14.t-black.t-normal');
-        const subtitle = (subtitleEl ? subtitleEl.innerText : '').trim();
-        if (!name || !href) continue;
-        out.push({ name, title: subtitle, profile_url: href, company: wantCompany });
+      for (const a of document.querySelectorAll('main a[href*="/in/"]')) {
+        const href = (a.getAttribute('href') || '').split('?')[0];
+        const id = (href.match(/\/in\/([^/]+)/) || [])[1];
+        if (!id || seen.has(id)) continue;
+        const name = ((a.innerText || '').split('
+')[0] || '').replace(/\s+/g, ' ').trim();
+        if (!name || skip.test(name)) continue;
+        const box = a.closest('li') || a.closest('div[role="listitem"]') || (a.parentElement && a.parentElement.parentElement);
+        const lines = (box ? box.innerText : '').split('
+').map(x => x.trim()).filter(Boolean);
+        const at = lines.findIndex(l => l === name || l.startsWith(name));
+        const title = lines.slice(at + 1).find(l => l.length > 3 && !noise.test(l)) || '';
+        seen.add(id);
+        out.push({ name, title, profile_url: href, company: wantCompany });
         if (out.length >= wantLimit) break;
       }
       return out;
