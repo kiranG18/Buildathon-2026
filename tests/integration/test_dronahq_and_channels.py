@@ -8,7 +8,7 @@ from backend.channels import adapters, inbound
 from backend.channels.base import REGISTRY, OutboundMessage
 from backend.core.config import get_settings
 from backend.core.db import tx
-from backend.core.errors import ChannelError
+from backend.core.errors import ChannelError, NotFound
 from backend.mcp import tools
 from backend.orchestrator import dronahq
 from backend.orchestrator.repo import enrollment
@@ -162,6 +162,38 @@ def test_a11_voice_briefing_and_outcome_webhooks(seeded, client):
         assert call["disposition"] == "connected_interested" and call["transcript"][1][2] == "Send me an email"
         assert db.q1("select count(*) as n from messages where enrollment_id = %s and kind = 'call'", (e["id"],))["n"] == 1
         assert db.q1("select state from enrollments where id = %s", (e["id"],))["state"] == "meeting"
+
+
+def test_a11_dronahq_post_call_payload_is_translated(seeded, client):
+    e = enrollment_of("noor-haddad", "C3")
+    payload = {"body": {"call_data": {"destination_number": {"number": "+1 415 555 0100"}, "answered_by_voicemail": False},
+                        "transcript": "Agent: Hi Noor, this is an AI assistant.\nCustomer: Send me an email\nAgent: Will do.",
+                        "recording_url": "https://rec.example/dh", "context": {"pre_webhook": {"enrollment_id": e["id"]}},
+                        "structured_data": {"disposition": "connected_interested", "next_step": "Email a summary", "objections": ["timing"]}}}
+    with tx() as db:
+        db.x("insert into calls (id, enrollment_id, prospect_id, at, disposition, mode) values ('CL-w', %s, 'noor-haddad', now(), 'awaiting_outcome', 'live')", (e["id"],))
+    assert client.post("/voice/outcome/dronahq", json=payload).status_code == 401
+    r = client.post("/voice/outcome/dronahq", json=payload, headers=SECRET)
+    assert r.status_code == 200, r.text
+    with tx() as db:
+        call = db.q1("select * from calls where enrollment_id = %s order by at desc limit 1", (e["id"],))
+        assert call["disposition"] == "connected_interested" and call["transcript"][1][0] == "Prospect" and call["objections"] == ["timing"]
+        assert db.q1("select state from enrollments where id = %s", (e["id"],))["state"] == "meeting"
+
+
+def test_a11_dronahq_payload_matches_by_dialled_number_and_defaults_the_disposition(seeded):
+    from backend.core import clock
+    from backend.orchestrator import voice
+
+    e = enrollment_of("noor-haddad", "C3")
+    with scratch() as db:
+        db.x("update prospects set phone = '+14155550100' where id = 'noor-haddad'")
+        db.x("insert into calls (id, enrollment_id, prospect_id, at, disposition, mode) values ('CL-d', %s, 'noor-haddad', %s, 'awaiting_outcome', 'live')", (e["id"], clock.now()))
+        spoke = voice.outcome_from_dronahq(db, {"call_data": {"destination_number": {"number": "+14155550100"}}, "transcript": "Agent: Hello\nCustomer: Not now"})
+        silent = voice.outcome_from_dronahq(db, {"call_data": {"destination_number": {"number": "+14155550100"}}, "transcript": "Agent: Hello"})
+        with pytest.raises(NotFound):
+            voice.outcome_from_dronahq(db, {"call_data": {"destination_number": {"number": "+10000000000"}}})
+    assert spoke["enrollment_id"] == e["id"] and spoke["disposition"] == "callback" and silent["disposition"] == "voicemail"
 
 
 def test_af6_a_call_without_an_outcome_becomes_unknown_outcome_and_escalates(seeded):

@@ -129,3 +129,13 @@ Findings:
 | End to end (`AGENT_PROVIDER_RESPONDER=dronahq`) | A simulated reply on a test prospect (C1) was recorded as "DronaHQ Responder: meeting_request", the enrollment moved to `replied_pos`, and a follow-up offering two slots was sent. No `provider_fallback` anywhere in the feed |
 | Pricing request | The same agent escalated a request for a 30 percent discount to a human, as the campaign rules require |
 | Latency | The Responder webhook returns in 12 to 17 s. The Researcher takes about 70 s, so the worker waits up to 110 s |
+
+## DronaHQ Voice webhooks (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Pre-call webhook | `GET /voice/briefing/{enrollment_id}` answers with the script, allowed claims and slots. The reply now includes `enrollment_id`, which DronaHQ passes on as `context.pre_webhook` |
+| Post-call payload | DronaHQ sends `call_data`, one `transcript` text (Agent and Customer lines), `recording_url` and the pre-webhook context. `POST /voice/outcome/dronahq` translates it. It finds the enrollment from the context, or from the dialled number of a call awaiting an outcome. Structured data wins for the disposition. Otherwise no customer speech is a voicemail and anything else is a callback |
+| Tests | `test_a11_dronahq_post_call_payload_is_translated`, `test_a11_dronahq_payload_matches_by_dialled_number_and_defaults_the_disposition` |
+| Not yet verified | The outbound call API and whether the trial number can dial India. A real call has not been placed |
+

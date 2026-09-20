@@ -3,6 +3,7 @@
 from agents.util import slots_for
 from backend.core import clock
 from backend.core.db import Db, J
+from backend.core.errors import NotFound
 from backend.orchestrator import dronahq
 from backend.orchestrator.repo import act, campaign, enrollment, mk_msg, prospect, rep_for, set_state
 
@@ -34,6 +35,7 @@ def briefing(db: Db, enrollment_id: str) -> dict:
     hist = db.q("select channel, direction, body from messages where enrollment_id = %s and status = 'sent' order by created_at desc limit 4", (enrollment_id,))
     first = p["first_name"]
     return {
+        "enrollment_id": enrollment_id,
         "prospect": {"name": p["full_name"], "title": p["title"], "company": p["company"]},
         "facts": [f["text"] for f in p["facts"][:3]],
         "history_summary": " ".join(f"[{m['channel']} {m['direction']}] {m['body'][:160]}" for m in reversed(hist)),
@@ -44,6 +46,39 @@ def briefing(db: Db, enrollment_id: str) -> dict:
         "rep": {"name": rep["name"]},
         "slots": [{"start": s["t"], "label": s["label"]} for s in slots_for(clock.ms(clock.now()))],
     }
+
+
+def outcome_from_dronahq(db: Db, payload: dict) -> dict:
+    """Translate DronaHQ's post-call payload into our outcome shape.
+
+    The enrollment id comes back from our briefing (context.pre_webhook), or as a custom value, or from the number that was dialled.
+    The transcript is one text with Agent and Customer lines. A disposition sent as structured data wins. Otherwise no customer speech is a voicemail and anything else is a callback for the rep."""
+    body = payload.get("body") if isinstance(payload.get("body"), dict) else payload
+    call = body.get("call_data") or {}
+    extra = {**(body.get("dynamic_variables") or {}), **(body.get("custom_payload") or {}), **((body.get("context") or {}).get("pre_webhook") or {})}
+    structured = next((body[k] for k in ("structured_data", "structured_output") if isinstance(body.get(k), dict)), {})
+    eid = extra.get("enrollment_id") or structured.get("enrollment_id")
+    if not eid:
+        dialled = "".join(ch for ch in str((call.get("destination_number") or {}).get("number", "")) if ch.isdigit())
+        for row in db.q("select c.enrollment_id, p.phone from calls c join prospects p on p.id = c.prospect_id where c.disposition = 'awaiting_outcome' order by c.at desc"):
+            if dialled and "".join(ch for ch in row["phone"] if ch.isdigit()) == dialled:
+                eid = row["enrollment_id"]
+                break
+    if not eid:
+        raise NotFound("The call cannot be matched to an enrollment")
+    raw = body.get("transcript") or ""
+    lines = list(raw) if isinstance(raw, list) else []
+    if isinstance(raw, str):
+        for ln in raw.splitlines():
+            who, sep, text = ln.partition(":")
+            if sep and text.strip():
+                lines.append({"speaker": "Caller" if who.strip().lower() in ("agent", "assistant", "ai") else "Prospect", "text": text.strip()})
+    disposition = structured.get("disposition")
+    if disposition not in DISPOSITIONS:
+        spoke = any(x.get("speaker") == "Prospect" for x in lines)
+        disposition = "voicemail" if call.get("answered_by_voicemail") or not spoke else "callback"
+    return {"enrollment_id": eid, "transcript": lines, "recording_url": body.get("recording_url"), "disposition": disposition, "objections": structured.get("objections") or [],
+            "next_step": structured.get("next_step") or "", "booked_slot": structured.get("booked_slot") or None, "structured_answers": structured}
 
 
 def ingest_outcome(db: Db, enrollment_id: str, outcome: dict) -> dict:

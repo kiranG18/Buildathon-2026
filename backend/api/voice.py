@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 
 from agents.models import CallOutcome
 from backend.core.db import Db
@@ -21,4 +21,11 @@ def briefing(enrollment_id: str, db: Db = Depends(db_dep)) -> dict:
 @router.post("/voice/outcome", dependencies=[Depends(webhook_guard)])
 def outcome(body: OutcomeBody, db: Db = Depends(db_dep)) -> dict:
     """DronaHQ post-call webhook: transcript, recording and disposition."""
+    return voice.ingest_outcome(db, body.enrollment_id, body.model_dump())
+
+
+@router.post("/voice/outcome/dronahq", dependencies=[Depends(webhook_guard)])
+def outcome_dronahq(payload: dict = Body(...), db: Db = Depends(db_dep)) -> dict:
+    """The DronaHQ Voice post-call webhook as DronaHQ sends it: one transcript text, call data, and the context our briefing returned."""
+    body = OutcomeBody(**voice.outcome_from_dronahq(db, payload))
     return voice.ingest_outcome(db, body.enrollment_id, body.model_dump())
