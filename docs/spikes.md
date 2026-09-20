@@ -108,3 +108,14 @@ Findings:
 | Production on `LLM_PROVIDER=groq`, `LLM_MODE=live` | The LLM integration shows live and OK. One discovered prospect (C1) went from research to qualified (score 72) to a real email in about a minute. The Writer used the model, not the generic-safe fallback, and the proof point cites knowledge chunk K-207 |
 | Cost of that prospect in model calls | Qualifier $0.00014, Sequencer $0.00042, Writer $0.0016, at the list prices in `agents/llm_client.py` (unverified prices, real token counts). The Researcher step is a direct enrichment estimate |
 | Twilio SMS to an Indian number | Rejected with error 572006, "Invalid template name. Trial accounts can only use predefined SMS templates". A trial account cannot send free text to +91 numbers. The account, credentials and connection test are fine. SMS stays in sandbox unless a verified non-Indian number is available |
+
+## Hosted DronaHQ agents against production (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Researcher webhook, direct call | HTTP 200 in 69 s. The agent (Claude Sonnet 4.6 on DronaHQ credits) ran web search, called our `enrich` tool, then our MCP `save_research`. The Standard reply lists the steps and ends at the last tool call, with no final structured result |
+| Backend timeout | The worker waited 30 s, so a 69 s run always fell back. It now waits up to 110 s, then up to 40 s for the callback, which fits under the 3-minute stale-job limit |
+| Callback clock bug | The callback lookup compared the demo clock with a real database timestamp, so with the clock ahead it could never match. It now uses `clock_timestamp()` |
+| End to end in production (`AGENT_PROVIDER_RESEARCHER=dronahq`) | A discovered prospect (C1, Warren Whitlock) got "DronaHQ Researcher saved 4 sourced facts ... through MCP", then was qualified at 72 and planned four touches. No `provider_fallback`. This is the trace where a DronaHQ agent calls our API and our API writes the result |
+| Responder webhook, direct call | HTTP 200 in 15 s. The agent called `set_classification` and `propose_slots` on our MCP and read the reply as positive with confidence 0.95, but answered the classification `interest`, which is not one of our values, and returned no structured result. The Responder stays on the direct provider until its Structured Output returns a valid result |
+| MCP tool timeout in DronaHQ | The allowed maximum was 15 s. It was left at 10 s, which is enough: our tools answer in milliseconds to about a second |
