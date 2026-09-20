@@ -184,4 +184,4 @@ LinkedIn's terms forbid automation, so use a test account and expect its limits.
 
 ## Team
 
-Kiran Golagani (product, UI, DronaHQ). Commit history shows all authors.
+Kiran Golagani (product, UI, DronaHQ), Rishav Kumar(Software + Backend), Parvathy (AI)
