@@ -81,6 +81,54 @@ def test_af2_a_dead_dronahq_researcher_falls_back_to_the_direct_provider(seeded,
         dronahq.set_transport(None)
 
 
+def test_the_hosted_responder_decision_arrives_through_set_classification(seeded, monkeypatch):
+    from backend.orchestrator.repo import campaign, prospect
+
+    monkeypatch.setattr(get_settings(), "agent_provider_responder", "dronahq")
+    monkeypatch.setattr(get_settings(), "dronahq_responder_webhook_url", "https://agents.example/responder")
+    e = enrollment_of("tomas-reyes", "C1")
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        tools.set_classification(e["id"], "meeting_request", "book_meeting", 0.93, reply_draft="Happy to. Two slots follow.", claims=["F1::Ledgerline ships payment rails", "K-207::Northbeam cut its backlog by 41%"],
+                                 slots_offered=["2026-09-22T10:00:00Z"], summary_update="Asked for times.")
+        return httpx.Response(200, json={"success": True, "response": [{"type": "text", "text": "Submitted."}]})
+
+    dronahq.set_transport(httpx.MockTransport(handler))
+    try:
+        with scratch() as db:
+            reading = dronahq.respond(db, enrollment(db, e["id"]), prospect(db, "tomas-reyes"), campaign(db, "C1"), "Can you send times for Tuesday?")
+        assert reading is not None and reading.llm and reading.reply_draft == "Happy to. Two slots follow." and reading.confidence == 0.93
+        assert [c["src"] for c in reading.claims] == ["F1", "K-207"]
+    finally:
+        dronahq.set_transport(None)
+        with tx() as db:
+            db.x("delete from responder_decisions where enrollment_id = %s", (e["id"],))
+
+
+def test_a_hosted_responder_that_submits_nothing_falls_back_to_the_direct_provider(seeded, monkeypatch):
+    from backend.orchestrator.repo import campaign, prospect
+
+    monkeypatch.setattr(get_settings(), "agent_provider_responder", "dronahq")
+    monkeypatch.setattr(get_settings(), "dronahq_responder_webhook_url", "https://agents.example/responder")
+    monkeypatch.setattr(dronahq, "RESPONDER_WAIT_SECONDS", 0.0)
+    e = enrollment_of("tomas-reyes", "C1")
+    dronahq.set_transport(httpx.MockTransport(lambda req: httpx.Response(200, json={"success": True, "response": []})))
+    try:
+        with scratch() as db:
+            assert dronahq.respond(db, enrollment(db, e["id"]), prospect(db, "tomas-reyes"), campaign(db, "C1"), "Sounds good") is None
+            assert db.q1("select count(*) as n from activity where enrollment_id = %s and reason_code = 'provider_fallback'", (e["id"],))["n"] >= 1
+    finally:
+        dronahq.set_transport(None)
+
+
+def test_set_classification_rejects_a_value_outside_the_allowed_set(seeded):
+    e = enrollment_of("tomas-reyes", "C1")
+    with pytest.raises(Exception, match="classification"):
+        tools.set_classification(e["id"], "pricing_inquiry", "reply", 0.9)
+    with pytest.raises(Exception, match="next_action"):
+        tools.set_classification(e["id"], "question", "call_them", 0.9)
+
+
 def test_a_synchronous_dronahq_researcher_answer_is_saved_through_the_same_tool(seeded, monkeypatch):
     monkeypatch.setattr(get_settings(), "agent_provider_researcher", "dronahq")
     monkeypatch.setattr(get_settings(), "dronahq_researcher_webhook_url", "https://agents.example/hook")

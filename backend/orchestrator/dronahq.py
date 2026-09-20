@@ -24,6 +24,7 @@ from backend.orchestrator.repo import act
 
 POST_TIMEOUT_S = 110.0
 WAIT_SECONDS = 40.0
+RESPONDER_WAIT_SECONDS = 20.0
 POLL_SECONDS = 1.0
 _transport: httpx.BaseTransport | None = None
 
@@ -125,12 +126,35 @@ def respond(db: Db, e: dict, p: dict, c: dict, text: str) -> Reading | None:
 
     payload = {"run_id": db.nid("run_"), "agent": "responder", "enrollment_id": e["id"], "campaign_id": c["id"], "prompt_bundle": _bundle_payload(db, c["id"], "Responder"),
                "context": {"inbound": text, "timeline": get_timeline_in(db, e["id"])}, "output_schema": ResponderResult.model_json_schema()}
+    started = db.q1("select clock_timestamp() as t")["t"]
+
+    def unavailable(why: str) -> None:
+        act(db, e, "gate", f"DronaHQ Responder unavailable ({why}). The reply used the direct provider", agent="Guardian", reason_code="provider_fallback")
+
+    def submitted() -> ResponderResult | None:
+        row = db.q1("select decision from responder_decisions where enrollment_id = %s and saved_at >= %s order by saved_at desc limit 1", (e["id"], started))
+        return ResponderResult.model_validate(row["decision"]) if row else None
+
+    parsed = None
     try:
         r = _post(get_settings().dronahq_responder_webhook_url, payload)
         r.raise_for_status()
-        parsed = ResponderResult.model_validate(agent_result(r.json()) or {})
-    except (httpx.HTTPError, ValueError, ValidationError) as exc:
-        act(db, e, "gate", f"DronaHQ Responder unavailable ({type(exc).__name__}). The reply used the direct provider", agent="Guardian", reason_code="provider_fallback")
+        try:
+            parsed = ResponderResult.model_validate(agent_result(r.json()) or {})
+        except (ValueError, ValidationError):
+            parsed = None
+    except httpx.TimeoutException:
+        log().warning("dronahq responder slow", extra={"event": "webhook_slow"})
+    except httpx.HTTPError as exc:
+        unavailable(type(exc).__name__)
+        return None
+    parsed = submitted() or parsed
+    deadline = time.monotonic() + RESPONDER_WAIT_SECONDS
+    while parsed is None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        parsed = submitted()
+    if parsed is None:
+        unavailable("no decision submitted")
         return None
     from agents.responder import LLM_TO_INTERNAL, OBJECTION_SUB
 

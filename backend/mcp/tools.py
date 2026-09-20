@@ -4,7 +4,7 @@ Agents never send anything through these tools. They read knowledge and the time
 propose and book slots, raise escalations and record a classification. Every send still passes the policy gate.
 """
 
-from agents.models import ResearchResult
+from agents.models import ResearchResult, ResponderResult
 from agents.util import slots_for
 from backend.core import clock
 from backend.core.db import J, tx
@@ -96,8 +96,14 @@ def create_escalation(enrollment_id: str, reason_code: str, summary: str, sugges
         return {"escalation_id": xid}
 
 
-def set_classification(message_id: str, classification: str, sentiment: str = "neutral", confidence: float = 0.8) -> dict:
+def set_classification(enrollment_id: str, classification: str, next_action: str, confidence: float = 0.8, sentiment: str = "neutral", objection_type: str | None = None,
+                       reply_draft: str = "", claims: list[str] | None = None, slots_offered: list[str] | None = None, escalation_reason: str | None = None, summary_update: str = "") -> dict:
+    """Record the hosted Responder's whole decision for one inbound reply. The worker resumes on it and the policy gate still checks every send."""
+    decision = ResponderResult.model_validate({
+        "classification": classification, "next_action": next_action, "confidence": confidence, "sentiment": sentiment, "objection_type": objection_type or None,
+        "reply_draft": reply_draft, "claims": claims or [], "slots_offered": slots_offered or [], "escalation_reason": escalation_reason or None, "summary_update": summary_update,
+    })
     with tx() as db:
-        if not db.x("update messages set classification = %s, rule = %s where id = %s and direction = 'in'", (classification, f"DronaHQ Responder ({sentiment}, {confidence:.2f})", message_id)):
-            raise NotFound("Inbound message not found")
-        return {"ok": True}
+        enrollment(db, enrollment_id)
+        db.x("insert into responder_decisions (enrollment_id, decision) values (%s,%s)", (enrollment_id, J(decision.model_dump())))
+        return {"ok": True, "classification": decision.classification, "next_action": decision.next_action}

@@ -4,11 +4,15 @@ import anyio
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
+from agents.models import ResponderResult
 from backend.core.config import get_settings
 from backend.core.security import secret_ok
 from backend.mcp import tools
 
 TOOL_NAMES = ("search_knowledge", "get_timeline", "save_research", "propose_slots", "book_meeting", "create_escalation", "set_classification")
+Classification = ResponderResult.model_fields["classification"].annotation
+NextAction = ResponderResult.model_fields["next_action"].annotation
+Sentiment = ResponderResult.model_fields["sentiment"].annotation
 
 
 def build_server() -> FastMCP:
@@ -47,9 +51,13 @@ def build_server() -> FastMCP:
         return await anyio.to_thread.run_sync(lambda: tools.create_escalation(enrollment_id, reason_code, summary, suggested_reply))
 
     @mcp.tool()
-    async def set_classification(message_id: str, classification: str, sentiment: str = "neutral", confidence: float = 0.8) -> dict:
-        """Record the classification of an inbound message."""
-        return await anyio.to_thread.run_sync(lambda: tools.set_classification(message_id, classification, sentiment, confidence))
+    async def set_classification(
+        enrollment_id: str, classification: Classification, next_action: NextAction, confidence: float = 0.8, sentiment: Sentiment = "neutral",
+        objection_type: str = "", reply_draft: str = "", claims: list[str] | None = None, slots_offered: list[str] | None = None, escalation_reason: str = "", summary_update: str = "",
+    ) -> dict:
+        """Submit your whole decision for one inbound reply, once, after any other tool calls. claims are strings written as source_id::statement."""
+        return await anyio.to_thread.run_sync(lambda: tools.set_classification(
+            enrollment_id, classification, next_action, confidence, sentiment, objection_type, reply_draft, claims, slots_offered, escalation_reason, summary_update))
 
     return mcp
 
