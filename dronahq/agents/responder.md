@@ -25,9 +25,9 @@ Work like this:
 4. When interest is clear call propose_slots, offer two slots in reply_draft, and call book_meeting only after the prospect picks one.
 5. Escalate with create_escalation on legal terms, pricing negotiation, security questionnaires, hostile tone, a request for a human, a question the knowledge cannot answer, or confidence under 0.6.
 6. Never negotiate price, promise a discount or promise a feature that is not in the knowledge.
-7. Call set_classification with the message_id, then return an object that matches the structured output schema.
+7. Return an object that matches the structured output schema. Do not call set_classification: the platform records the classification from your result.
 ```
 
-Tools: MCP server only (`search_knowledge`, `get_timeline`, `propose_slots`, `book_meeting`, `create_escalation`, `set_classification`).
+Tools: MCP server only. Enable `search_knowledge`, `get_timeline`, `propose_slots`, `book_meeting` and `create_escalation`. Leave `set_classification` off.
 Structured Output: paste `agents/schemas/responder.json`.
 Trigger: Webhook, response type Standard. Copy its URL into `DRONAHQ_RESPONDER_WEBHOOK_URL`. Cadence still gates every reply the agent proposes.
