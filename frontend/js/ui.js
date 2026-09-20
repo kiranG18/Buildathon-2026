@@ -151,15 +151,13 @@ function band(o){
 }
 /* ---------- login ---------- */
 function loginPage(){
- const cards=PUB.map(c=>`<div class="card tight"><div class="row">${chipOf(c.id)}<b>${esc(c.name)}</b><span class="right">${statusPill(c)}</span></div><div class="muted small" style="margin-top:8px">${esc(c.objective)}</div><div class="row gap12" style="margin-top:10px;font-size:13px"><span><b>${c.prospects}</b> prospects</span><span><b>${c.replies}</b> replies</span><span><b>${c.meetings}</b> meetings</span></div></div>`).join('')||'<div class="skel" style="height:96px"></div>';
- const chips=[['admin@helix.demo','Nadia Frost','Admin'],['ava@helix.demo','Ava Chen','Manager'],['marcus@helix.demo','Marcus Lee','Rep']];
+ const pts=[['route','One autonomous SDR across email, LinkedIn, SMS and voice'],['shield','A policy gate checks every message before it leaves'],['users','Managers set the rules and step in where a person matters']];
  return`<div class="login"><div class="l"><div class="brand" style="padding-left:0"><i>${ic('route',16).replace('currentColor','#f6f7ee')}</i>Cadence</div>
  <div class="h1" style="margin-top:8px">Sign in to your sales operation</div><p class="sub">Cadence works your outbound as one autonomous SDR. You set the rules, it runs the pipeline, and you step in where a human matters.</p>
- <div class="col gap12" style="margin-top:26px"><div class="field"><label for="lem">Email</label><input class="inp" id="lem" value="" placeholder="ava@helix.demo" autocomplete="username"></div>
- <div class="field"><label for="lpw">Password</label><input class="inp" id="lpw" type="password" placeholder="Demo password: helix-demo" autocomplete="current-password"><div class="err" id="lerr" hidden>Email or password is wrong.</div></div>
- <button class="btn pri" id="lgo" data-a="login" style="justify-content:center">Sign in</button></div>
- <div class="row wrap" style="margin-top:22px"><span class="muted small">Demo sign-in</span>${chips.map(x=>`<button class="btn sm" data-a="loginAs" data-email="${x[0]}">${av(x[1],'sm')}${x[2]}</button>`).join('')}</div></div>
- <div class="r"><div class="h3">Running for Helix Agents today</div>${cards}<div class="muted small">Every record in this workspace is fictional and carries a DEMO chip.</div></div></div>`;
+ <div class="col gap12" style="margin-top:26px"><div class="field"><label for="lem">Email</label><input class="inp" id="lem" value="" placeholder="you@company.com" autocomplete="username"></div>
+ <div class="field"><label for="lpw">Password</label><input class="inp" id="lpw" type="password" autocomplete="current-password"><div class="err" id="lerr" hidden>Email or password is wrong.</div></div>
+ <button class="btn pri" id="lgo" data-a="login" style="justify-content:center">Sign in</button></div></div>
+ <div class="r">${pts.map(x=>`<div class="row gap12" style="align-items:flex-start"><span class="ico">${ic(x[0],18)}</span><div class="h3" style="font-weight:500">${x[1]}</div></div>`).join('')}</div></div>`;
 }
 const chipOf=cid=>`<span class="chip ${COLORS[cid]||'cx'}"><i class="dot ${COLORS[cid]||'cx'}"></i>${cid}</span>`;
 
@@ -374,6 +372,7 @@ function pgCampaign(id,tab){
  if(S.user.role==='Rep'&&!c.reps.includes(S.user.id))return deny('This campaign belongs to other reps.');
  const s=cstats(id),ck=campChecklist(c),allOk=ck.every(x=>x.ok);
  const act=c.status==='live'?`<button class="btn pri" data-a="pause" data-id="${id}" style="height:44px">${ic('pause',16)}Pause campaign</button>`:c.status==='paused'?`<button class="btn warn" style="height:44px" data-a="resume" data-id="${id}">${ic('play',16)}Resume campaign</button>`:c.status==='draft'?`<button class="btn pri ${allOk?'':'dis'}" data-a="activate" data-id="${id}" style="height:44px">Activate</button>`:'';
+ const edit=S.user.role!=='Rep'&&!['completed','archived'].includes(c.status)?`<button class="btn" data-a="campEdit" data-id="${id}" style="height:44px">${ic('edit',16)}Edit</button>`:'';
  const menu=`<span class="menuwrap"><button class="btn" data-a="menu" data-id="ch-${id}" aria-label="More" style="height:44px">${ic('dots',16)}</button>${UI.menu==='ch-'+id?campMenu(c):''}</span>`;
  const chips=Object.keys(c.channels).filter(k=>c.channels[k]).map(k=>`<span class="chip line">${chIc(k)}${CH[k].n}</span>`).join('');
  const extra=`<div class="row wrap" style="margin-top:14px">${statusPill(c)}${chips}<span class="chip line">${ic('users',12)}${c.reps.map(r=>first(U(r).name)).join(', ')}</span><span class="chip line">Owner ${esc(first(U(c.owner).name))}</span><span class="chip line">Version ${c.version}</span></div>`;
@@ -381,7 +380,7 @@ function pgCampaign(id,tab){
  const tb=`<div class="tabs">${t.map(x=>`<a data-go="/campaigns/${id}/${x.k}" class="${tab===x.k?'on':''}">${x.l}${x.n!=null?`<span class="cnt">${x.n}</span>`:''}</a>`).join('')}</div>`;
  let body='';
  if(tab==='overview')body=campOverview(c,s,ck);else if(tab==='board')body=`<div class="pad">${prospectsView(id)}</div>`;else if(tab==='activity')body=activityView(id);else if(tab==='prompts')body=promptsView(id);else if(tab==='knowledge')body=knowledgeView(id);else if(tab==='config')body=campConfig(c,ck);
- return`${band({crumbs:[['Campaigns','/campaigns'],[esc(c.name)]],title:`${esc(c.name)}`,sub:esc(c.icp),acts:act+menu,extra})}${tb}${body}`;
+ return`${band({crumbs:[['Campaigns','/campaigns'],[esc(c.name)]],title:`${esc(c.name)}`,sub:esc(c.icp),acts:act+edit+menu,extra})}${tb}${body}`;
 }
 function ckList(ck){return`<div>${ck.map(x=>`<div class="check ${x.ok?'ok':'no'}"><span class="b">${x.ok?ic('check',12):''}</span><span>${esc(x.t)}</span></div>`).join('')}</div>`}
 function campOverview(c,s,ck){

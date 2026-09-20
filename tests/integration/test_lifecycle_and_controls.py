@@ -198,3 +198,35 @@ def test_a_user_changes_their_own_password(seeded, client, auth):
     assert client.post("/auth/password", headers=h, json={"current": "helix-demo", "new": "a-better-pass1"}).status_code == 200
     assert client.post("/auth/login", json={"email": "ava@helix.demo", "password": "helix-demo"}).status_code == 401
     assert client.post("/auth/login", json={"email": "ava@helix.demo", "password": "a-better-pass1"}).status_code == 200
+
+
+def test_a_manager_edits_a_campaign_and_only_that_campaign_changes(seeded, client, auth):
+    h = auth("ava@helix.demo")
+    other = client.get("/campaigns/C2", headers=h).json()
+    r = client.patch("/campaigns/C1", headers=h, json={"name": "US SaaS CTOs, renamed", "objective": "Book intro calls", "roles": ["CTO", "VP Engineering"], "thr": 65, "daily_send_cap": 20})
+    assert r.status_code == 200
+    c = client.get("/campaigns/C1", headers=h).json()
+    assert (c["name"], c["objective"], c["roles"], c["thr"], c["daily_send_cap"]) == ("US SaaS CTOs, renamed", "Book intro calls", ["CTO", "VP Engineering"], 65, 20)
+    assert c["version"] == r.json()["version"]
+    assert client.get("/campaigns/C2", headers=h).json() == other
+    for bad in ({"thr": 101}, {"daily_send_cap": -1}, {"name": ""}):
+        assert client.patch("/campaigns/C1", headers=h, json=bad).status_code == 400
+    assert client.patch("/campaigns/C1", headers=auth("priya@helix.demo"), json={"thr": 60}).status_code == 403
+
+
+def test_the_sign_in_screen_no_longer_exposes_campaign_details(seeded, client):
+    assert client.get("/public/campaigns").status_code in (404, 405)
+
+
+def test_clean_workspace_removes_records_and_keeps_configuration(seeded):
+    from scripts.clean_workspace import RECORDS, clean
+    from tests.helpers import scratch
+
+    with scratch() as db:
+        kept = {t: db.q1(f"select count(*) as n from {t}")["n"] for t in ("users", "campaigns", "prompt_versions", "campaign_agents", "knowledge_documents", "integrations")}
+        db.x("update global_settings set demo_clock_offset_hours = 49")
+        before = clean(db)
+        assert before["prospects"] > 0 and before["messages"] > 0
+        assert all(db.q1(f"select count(*) as n from {t}")["n"] == 0 for t in RECORDS)
+        assert kept == {t: db.q1(f"select count(*) as n from {t}")["n"] for t in kept}
+        assert db.q1("select demo_clock_offset_hours as h from global_settings")["h"] == 0

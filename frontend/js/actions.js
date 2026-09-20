@@ -3,14 +3,16 @@
 async function run(fn,opts){
  opts=opts||{};
  try{
+  if(opts.optimistic){opts.optimistic();repaint()}
   const r=await fn();
-  await hydrate(true);
+  if(opts.optimistic)hydrate(true).then(repaint).catch(()=>{});else await hydrate(true);
   if(opts.ok)toast(typeof opts.ok==='function'?opts.ok(r):opts.ok,opts.toast);
   if(opts.after)opts.after(r);
   repaint();
   return r;
  }catch(e){
   toast(e.message,{bad:true});
+  if(opts.optimistic)await hydrate(true).catch(()=>{});
   repaint();
   return null;
  }
@@ -29,8 +31,7 @@ async function signIn(email,password){
  }
 }
 ACT.login=()=>signIn($('#lem').value.trim(),$('#lpw').value);
-ACT.loginAs=t=>signIn(t.dataset.email,'helix-demo');
-ACT.logout=()=>{signOut();loadPublic().then(paint);paint()};
+ACT.logout=()=>{signOut();paint()};
 ACT.killAsk=()=>confirmBox('Stop all outreach','Every campaign halts at once. In-flight jobs finish and nothing new sends until you resume the platform.','Stop everything',()=>run(()=>api.post('/kill-switch',{active:true}),{ok:'Kill switch on. All outreach is halted.',toast:{bad:true}}),true);
 ACT.killOff=()=>run(()=>api.post('/kill-switch',{active:false}),{ok:'Platform resumed. Held jobs continue.'});
 
@@ -64,10 +65,25 @@ ACT.giveTo=t=>{const x=S.conflicts.find(v=>v.id===idOf(t)),c=t.dataset.c;
 };
 
 /* ---------- campaign controls ---------- */
-ACT.pause=t=>{const id=idOf(t);run(()=>api.post('/campaigns/'+id+'/pause'),{ok:r=>`${esc(C(id).name)} paused. ${r.held_jobs} jobs held. The other campaigns keep running.`,toast:{undo:()=>run(()=>api.post('/campaigns/'+id+'/resume'))}})};
-ACT.resume=t=>run(()=>api.post('/campaigns/'+idOf(t)+'/resume'),{ok:'Resumed. Held jobs continue.'});
+ACT.pause=t=>{const id=idOf(t);run(()=>api.post('/campaigns/'+id+'/pause'),{optimistic:()=>{C(id).status='paused'},ok:r=>`${esc(C(id).name)} paused. ${r.held_jobs} jobs held. The other campaigns keep running.`,toast:{undo:()=>run(()=>api.post('/campaigns/'+id+'/resume'),{optimistic:()=>{C(id).status='live'}})}})};
+ACT.resume=t=>{const id=idOf(t);run(()=>api.post('/campaigns/'+id+'/resume'),{optimistic:()=>{C(id).status='live'},ok:'Resumed. Held jobs continue.'})};
 ACT.complete=t=>{const c=C(idOf(t));UI.menu=null;confirmBox('Complete this campaign',`${esc(c.name)} stops all activity and becomes read-only. Analytics stay available.`,'Complete campaign',()=>run(()=>api.post('/campaigns/'+c.id+'/complete'),{ok:'Campaign completed.'}))};
 ACT.archive=t=>{const c=C(idOf(t));UI.menu=null;confirmBox('Archive this campaign',`${esc(c.name)} is hidden from the default list. Analytics stay available.`,'Archive',()=>run(()=>api.post('/campaigns/'+c.id+'/archive'),{ok:'Archived.',after:()=>go('/campaigns')}),true)};
+ACT.campEdit=t=>{const c=C(idOf(t));if(!c)return;const list=v=>(v||[]).join(', ');
+ openModal(`<h2>Edit ${esc(c.name)}</h2><p class="muted" style="margin:6px 0 14px">Saved as a new campaign version. Agents pick it up on their next step, and other campaigns are not affected.</p>
+ <div class="col gap12"><div class="field"><label>Name</label><input class="inp" id="ce1" value="${esc(c.name)}"></div>
+ <div class="field"><label>Objective</label><textarea class="txt" id="ce2" rows="2">${esc(c.objective)}</textarea></div>
+ <div class="field"><label>ICP summary</label><input class="inp" id="ce3" value="${esc(c.icp)}"></div>
+ <div class="grid g2"><div class="field"><label>Target roles (comma separated)</label><input class="inp" id="ce4" value="${esc(list(c.roles))}"></div><div class="field"><label>Geographies</label><input class="inp" id="ce5" value="${esc(list(c.geoList))}"></div></div>
+ <div class="field"><label>Exclusions</label><input class="inp" id="ce6" value="${esc(list(c.exclusions))}"></div>
+ <div class="field"><label>Tone</label><input class="inp" id="ce7" value="${esc(c.tone||'')}"></div>
+ <div class="grid g2"><div class="field"><label>Qualification threshold (0 to 100)</label><input class="inp" id="ce8" type="number" min="0" max="100" value="${c.thr}"></div><div class="field"><label>Daily send cap</label><input class="inp" id="ce9" type="number" min="0" value="${c.cap}"></div></div></div>
+ <div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="cego">Save changes</button></div>`,'lg');
+ $('#cego').onclick=async()=>{const split=s=>s.split(',').map(x=>x.trim()).filter(Boolean),name=$('#ce1').value.trim(),thr=+$('#ce8').value,cap=+$('#ce9').value;
+  if(!name){toast('Give the campaign a name.',{bad:true});return}
+  if(!(thr>=0&&thr<=100)||!(cap>=0)){toast('Threshold is 0 to 100 and the daily cap cannot be negative.',{bad:true});return}
+  try{const r=await api.patch('/campaigns/'+c.id,{name,objective:$('#ce2').value.trim(),icp:$('#ce3').value.trim(),roles:split($('#ce4').value),geo_list:split($('#ce5').value),exclusions:split($('#ce6').value),tone:$('#ce7').value.trim(),thr,daily_send_cap:cap});
+   closeModal();await hydrate(true);repaint();toast(`${name} saved as version ${r.version}.`)}catch(e){toast(e.message,{bad:true})}}};
 ACT.dup=t=>{UI.menu=null;run(()=>api.post('/campaigns/'+idOf(t)+'/duplicate',{}),{ok:r=>`Created ${esc(r.name)} as a Draft. Copy of prompts, settings and knowledge.`,after:r=>go('/campaigns/'+r.id+'/overview')})};
 ACT.agentSw=t=>run(()=>api.put('/campaigns/'+idOf(t)+'/agents/'+t.dataset.k,{enabled:!C(idOf(t)).agents[t.dataset.k]}));
 ACT.chanSw=t=>{const id=idOf(t),k=t.dataset.k;run(()=>api.put('/campaigns/'+id+'/channels/'+k,{enabled:!C(id).channels[k]}),{ok:r=>r.replanned?`Replanned ${r.replanned} prospect${r.replanned===1?'':'s'}: ${CH[k].n} paused, touches moved to email. Open a prospect to see the new plan.`:null,toast:{}}).then(()=>{})};

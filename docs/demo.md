@@ -56,7 +56,7 @@ Say what happened in one sentence and move on.
 
 ## Judge card
 
-1. Sign in with a demo chip and create a campaign from the C1 template. Try Activate and read the checklist.
+1. Sign in as the manager and create a campaign from the C1 template. Try Activate and read the checklist.
 2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.
 3. Pause a campaign and watch Agent Activity.
 

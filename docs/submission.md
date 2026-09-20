@@ -19,7 +19,7 @@ Read the portal form and record extra fields, file limits and any earlier cut-of
 ## Checklist
 
 - [ ] Every link opens in a private window.
-- [ ] The live URL signs in with a demo chip and `make reset` state is loaded.
+- [ ] The live URL signs in with the credentials given on the portal form and the workspace is clean.
 - [ ] README quick start passes from a clean clone.
 - [ ] `git log` shows incremental commits and no secrets (CI secret scan is green).
 - [ ] The social post tags @DronaHQ. Save the confirmation screenshot.

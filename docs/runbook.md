@@ -12,7 +12,7 @@ Health: `GET /health` returns 200 with `{"status": "ok"}`. Point an uptime monit
 
 ## Deploy on Railway with Supabase
 
-Manual steps are `MANUAL_ACTIONS.md` MA-03, MA-06 and MA-07. After they finish, confirm `/health` on the public URL, sign in with a demo chip, and run `python scripts/check_env.py` in the service shell.
+Manual steps are `MANUAL_ACTIONS.md` MA-03, MA-06 and MA-07. After they finish, confirm `/health` on the public URL, sign in as the admin, and run `python scripts/check_env.py` in the service shell.
 
 ## Reset
 

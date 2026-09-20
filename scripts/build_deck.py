@@ -168,7 +168,7 @@ def main() -> None:
                 "LinkedIn is rep-assisted by design: a person sends each note. Golden sets are small and the live-model scores depend on the provider's rate limit.", "Full list: docs/report/report.md"], size=18)
 
     s = slide(prs, "Try it yourself", "Judge card")
-    bullets(s, ["1. Sign in with a demo chip. Create a campaign from the C1 template. Try Activate and read the checklist.", "2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.", "3. Pause a campaign and watch Agent Activity.", "Live: buildathon-2026-production.up.railway.app", "Repo: github.com/kiranG18/Buildathon-2026"], size=20)
+    bullets(s, ["1. Sign in as the manager. Create a campaign from the C1 template. Try Activate and read the checklist.", "2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.", "3. Pause a campaign and watch Agent Activity.", "Live: buildathon-2026-production.up.railway.app", "Repo: github.com/kiranG18/Buildathon-2026"], size=20)
 
     out = ROOT / "docs" / "deck"
     out.mkdir(parents=True, exist_ok=True)

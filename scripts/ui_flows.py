@@ -26,7 +26,9 @@ def main() -> int:
         page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
         page.goto(BASE)
         page.wait_for_selector(".login")
-        page.click("[data-a=loginAs][data-email='ava@helix.demo']")
+        page.fill("#lem", "ava@helix.demo")
+        page.fill("#lpw", "helix-demo")
+        page.click("#lgo")
         page.wait_for_selector(".app")
 
         step("pause C2 leaves the others running")

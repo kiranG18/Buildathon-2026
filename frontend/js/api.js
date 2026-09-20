@@ -2,7 +2,7 @@
 let TOKEN=null;
 try{TOKEN=sessionStorage.getItem('cadence.token')}catch(e){TOKEN=null}
 const NET={err:null,last:null,retryAt:0};
-let LASTSIG=null,PUB=[];
+let LASTSIG=null;
 
 async function call(method,path,body,opts){
  opts=opts||{};
@@ -45,9 +45,13 @@ function sampleQueue(){
 async function hydrate(force){
  if(!TOKEN)return false;
  try{
+  if(force){
+   const [sg,st]=await Promise.all([call('GET','/state/sig',null,{keepSession:false}),call('GET','/state')]);
+   NET.last=Date.now();applyState(st);LASTSIG=sg.sig;return true;
+  }
   const sg=await call('GET','/state/sig',null,{keepSession:false});
   NET.last=Date.now();
-  if(!force&&S&&sg.sig===LASTSIG){S.now=sg.now;S.wall=Date.now();return false}
+  if(S&&sg.sig===LASTSIG){S.now=sg.now;S.wall=Date.now();return false}
   const st=await call('GET','/state');
   applyState(st);LASTSIG=sg.sig;
   return true;
@@ -55,8 +59,4 @@ async function hydrate(force){
   if(e.status===0){NET.err='network'}
   return false;
  }
-}
-
-async function loadPublic(){
- try{PUB=await call('GET','/public/campaigns')}catch(e){PUB=[]}
 }

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.analytics.rollups import stats
 from backend.core import clock
@@ -35,13 +35,13 @@ class CampaignBody(BaseModel):
 
 
 class CampaignPatch(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=120)
     objective: str | None = None
     icp: str | None = None
     tone: str | None = None
     refs: str | None = None
-    thr: int | None = None
-    daily_send_cap: int | None = None
+    thr: int | None = Field(default=None, ge=0, le=100)
+    daily_send_cap: int | None = Field(default=None, ge=0, le=1000)
     priority: int | None = None
     appr: dict[str, bool] | None = None
     ch_limit: dict[str, int] | None = None

@@ -28,7 +28,9 @@ def main() -> int:
         page.goto(BASE)
         page.wait_for_selector(".login")
         page.screenshot(path=str(OUT / "login.png"))
-        page.click("[data-a=loginAs][data-email='ava@helix.demo']")
+        page.fill("#lem", "ava@helix.demo")
+        page.fill("#lpw", "helix-demo")
+        page.click("#lgo")
         page.wait_for_selector(".app")
         for r in ROUTES:
             page.evaluate(f"go('{r}')")

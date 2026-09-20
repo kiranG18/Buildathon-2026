@@ -22,9 +22,9 @@ function boot(){
  UI.path=(location.hash||'#/overview').slice(1)||'/overview';
  setInterval(poll,POLL_MS);
  setInterval(updateClock,1000);
- if(!TOKEN){loadPublic().then(paint);paint();return}
+ if(!TOKEN){paint();return}
  rootLoading();
- hydrate(true).then(()=>{if(S)paint();else{signOut();loadPublic().then(paint)}});
+ hydrate(true).then(()=>{if(S)paint();else{signOut();paint()}});
 }
 function rootLoading(){
  $('#root').innerHTML=`<div class="app"><aside class="side"><div class="brand"><i>${ic('route',16).replace('currentColor','#f6f7ee')}</i>Cadence</div><div class="col gap12" style="padding:0 10px">${'<div class="skel" style="height:34px"></div>'.repeat(8)}</div></aside><main class="main"><div class="band"><div class="skel" style="height:34px;width:320px"></div><div class="skel" style="height:18px;width:480px;margin-top:12px"></div></div><div class="pad"><div class="kpirow">${'<div class="skel" style="height:78px"></div>'.repeat(6)}</div></div></main></div>`;

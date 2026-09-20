@@ -1,6 +1,6 @@
 # API
 
-FastAPI serves OpenAPI at `/docs` and `/redoc`. `make schemas` exports `docs/openapi.json`. Every route except `/health`, `/auth/login`, `/public/campaigns`, `/demo-sources/*` and the signed webhooks needs `Authorization: Bearer <jwt>`.
+FastAPI serves OpenAPI at `/docs` and `/redoc`. `make schemas` exports `docs/openapi.json`. Every route except `/health`, `/auth/login`, `/demo-sources/*` and the signed webhooks needs `Authorization: Bearer <jwt>`.
 
 Errors: `{"error": {"code", "message", "request_id"}}`. Status codes: 400 validation, 401 no or bad token, 403 wrong role, 404 missing, 409 state conflict or a gate refusal, 429 rate limit, 502 upstream or database failure.
 
@@ -14,7 +14,6 @@ Roles: `Admin` (everything), `Manager` (campaigns, prompts, controls, kill switc
 | `/auth/password` | POST | `{current, new}` changes the signed-in user's own password (8 characters or more) |
 | `/state` | GET | The whole workspace the UI reads. Reps get only their campaigns |
 | `/state/sig` | GET | A cheap signature the UI polls every 3 seconds. The UI fetches `/state` only when it changes |
-| `/public/campaigns` | GET | Campaign cards for the sign-in screen |
 
 ## Campaigns and control
 
