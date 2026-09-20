@@ -7,7 +7,8 @@ Each run is capped and paced. Use a test account and expect LinkedIn's own limit
 
 Set the LinkedIn integration to Live in Settings first, sign in once with `node scripts/linkedin_login.js`, then run:
     CADENCE_EMAIL=you@example.com python scripts/linkedin_runner.py            (asks for the password)
-Options: --limit 5 (notes per run), --pause 45 (minimum seconds between sends), --headed (watch the browser), --dry-run (list only)."""
+Options: --limit 5 (notes per run, at most 10), --pause 45 (minimum seconds between sends), --headed (watch the browser), --dry-run (list only),
+--yes (send without asking for each note; the cap and the pauses still apply)."""
 
 import argparse
 import getpass
@@ -23,6 +24,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_URL = "https://buildathon-2026-production.up.railway.app"
 NOTE_LIMIT = 200
+MAX_PER_RUN = 10
 
 
 def pending_notes(state: dict) -> list[dict]:
@@ -58,7 +60,10 @@ def main() -> None:
     ap.add_argument("--pause", type=int, default=45)
     ap.add_argument("--headed", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--yes", action="store_true", help="send without asking for each note")
     args = ap.parse_args()
+    if not 1 <= args.limit <= MAX_PER_RUN:
+        sys.exit(f"--limit must be between 1 and {MAX_PER_RUN}.")
 
     email = os.getenv("CADENCE_EMAIL") or input("Cadence email (a manager or admin): ").strip()
     password = os.getenv("CADENCE_PASSWORD") or getpass.getpass("Password: ")
@@ -78,7 +83,7 @@ def main() -> None:
             print(f"\n[{i + 1}/{len(todo)}] {n['name']}  {n['url']}\n{as_sent(n['note'])}")
             if args.dry_run:
                 continue
-            answer = input("Send this note from your LinkedIn account? [y/N/q] ").strip().lower()
+            answer = "y" if args.yes else input("Send this note from your LinkedIn account? [y/N/q] ").strip().lower()
             if answer == "q":
                 break
             if answer != "y":

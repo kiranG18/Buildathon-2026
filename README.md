@@ -150,7 +150,7 @@ The deployed site never sends a LinkedIn note. `scripts/linkedin_runner.py` is t
 
 1. One time: `cd scripts && npm install`, then `node scripts/linkedin_login.js` and sign in to LinkedIn in the window that opens.
 2. In Settings, Integrations, set LinkedIn to Live. Import prospects with their real profile URLs (CSV columns: name, title, company, email, phone, LinkedIn URL).
-3. Approve nothing in the browser. Run `python scripts/linkedin_runner.py` and answer `y` or `n` per note. Use `--dry-run` to only list them.
+3. Approve nothing in the browser. Run `python scripts/linkedin_runner.py` and answer `y` or `n` per note. Use `--dry-run` to only list them. `--yes` sends every waiting note without asking (still at most 10 per run, with pauses), so read the campaign's prompts first.
 
 LinkedIn's terms forbid automation, so use a test account and expect its limits. Chrome must be at `C:\Program Files\Google\Chrome\Application\chrome.exe`.
 
