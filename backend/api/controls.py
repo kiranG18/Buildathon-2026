@@ -1,5 +1,8 @@
+import secrets
+from typing import Literal
+
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core import clock
 from backend.core.db import Db
@@ -23,9 +26,11 @@ class ReassignBody(BaseModel):
     replacement_rep_id: str | None = None
 
 
-class RepBody(BaseModel):
-    name: str
-    rep_limit: int = 30
+class UserBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    role: Literal["Admin", "Manager", "Rep"] = "Rep"
+    email: str | None = Field(default=None, max_length=120)
+    rep_limit: int = Field(default=30, ge=0, le=500)
 
 
 class RepPatch(BaseModel):
@@ -72,15 +77,22 @@ def reps(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[d
     return out
 
 
-@router.post("/reps", status_code=201)
-def add_rep(body: RepBody, user: User = Depends(adm), db: Db = Depends(db_dep)) -> dict:
-    n = db.q1("select count(*) as n from users")["n"]
+@router.post("/users", status_code=201)
+def add_user(body: UserBody, user: User = Depends(adm), db: Db = Depends(db_dep)) -> dict:
+    """An admin adds a rep, manager or admin. The generated password is returned once and only its hash is stored."""
+    slug_ = ".".join(part for part in "".join(ch if ch.isalnum() else " " for ch in body.name.lower()).split())
+    email = (body.email or f"{slug_}@helix.demo").strip().lower()
+    if "@" not in email or db.q1("select 1 as x from users where lower(email) = %s", (email,)):
+        raise StateConflict("That email is missing or already has an account", code="email_taken")
+    is_rep = body.role == "Rep"
+    n = db.q1("select count(*) as n from users where role = 'Rep'")["n"]
+    password = secrets.token_urlsafe(9)
     uid = db.nid("U")
-    slug_ = "".join(ch if ch.isalnum() else "." for ch in body.name.lower()).strip(".")
-    db.x("insert into users (id, name, role, email, password_hash, title, rep_limit, channels, label) values (%s,%s,'Rep',%s,%s,'Account executive',%s,%s,%s)",
-         (uid, body.name, f"{slug_}@helix.demo", hash_password("helix-demo"), body.rep_limit, ["email", "linkedin"], f"Rep {chr(64 + n - 2)}"))
-    act(db, None, "agent", f"{user['name']} added rep {body.name}", agent="Manager")
-    return {"id": uid}
+    db.x("insert into users (id, name, role, email, password_hash, title, rep_limit, channels, label) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+         (uid, body.name.strip(), body.role, email, hash_password(password), "Account executive" if is_rep else body.role, body.rep_limit if is_rep else 0,
+          ["email", "linkedin"] if is_rep else [], f"Rep {chr(65 + n)}" if is_rep else ""))
+    act(db, None, "agent", f"{user['name']} added {body.role.lower()} {body.name.strip()}", agent="Manager")
+    return {"id": uid, "email": email, "role": body.role, "password": password}
 
 
 @router.patch("/reps/{rid}")

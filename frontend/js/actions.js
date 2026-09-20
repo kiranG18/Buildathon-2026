@@ -198,8 +198,18 @@ ACT.kbUp=t=>{const cid=t.dataset.c;openModal(`<h2>Upload a document</h2><div cla
 ACT.integSw=t=>{const v=S.integ[t.dataset.k];run(()=>api.post('/integrations/'+t.dataset.k+'/pause',{paused:!v.paused}),{ok:r=>v.paused?`${v.n} resumed.`:`${v.n} paused everywhere.${r.replanned?` Replanned ${r.replanned} prospects.`:''}`})};
 ACT.integMode=t=>{const v=S.integ[t.dataset.k];run(()=>api.post('/integrations/'+t.dataset.k+'/mode',{mode:t.dataset.m}),{ok:`${v.n} is now ${t.dataset.m.toUpperCase()}. New messages carry the ${t.dataset.m.toUpperCase()} tag.`})};
 ACT.integTest=async t=>{const v=S.integ[t.dataset.k];try{const r=await api.post('/integrations/'+t.dataset.k+'/test');await hydrate(true);r.ok?toast(`${v.n} responded.`):toast(`${v.n} still fails: ${r.error}`,{bad:true});repaint()}catch(e){toast(e.message,{bad:true})}};
-ACT.repAdd=()=>{openModal(`<h2>Add a rep</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Full name</label><input class="inp" id="ra1"></div><div class="field"><label>Daily send limit</label><input class="inp" id="ra2" type="number" value="30"></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="ra3">Add rep</button></div>`);
- $('#ra3').onclick=()=>{const n=$('#ra1').value.trim();if(!n){toast('Enter a name.',{bad:true});return}closeModal();run(()=>api.post('/reps',{name:n,rep_limit:+$('#ra2').value||30}),{ok:n+' added.'})};
+ACT.repAdd=()=>{openModal(`<h2>Add a user</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Full name</label><input class="inp" id="ra1"></div><div class="field"><label>Role</label><select class="sel" id="ra4"><option value="Rep">Rep</option><option value="Manager">Manager</option><option value="Admin">Admin</option></select></div><div class="field"><label>Email (optional)</label><input class="inp" id="ra5" type="email" placeholder="Leave blank for name@helix.demo"></div><div class="field" id="ra2f"><label>Daily send limit (reps)</label><input class="inp" id="ra2" type="number" value="30"></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="ra3">Add user</button></div>`);
+ $('#ra4').onchange=()=>{$('#ra2f').hidden=$('#ra4').value!=='Rep'};
+ $('#ra3').onclick=async()=>{const n=$('#ra1').value.trim();if(!n){toast('Enter a name.',{bad:true});return}
+  try{const r=await api.post('/users',{name:n,role:$('#ra4').value,email:$('#ra5').value.trim()||null,rep_limit:+$('#ra2').value||30});await hydrate(true);
+   openModal(`<h2>${esc(n)} was added</h2><p class="muted" style="margin:6px 0 14px">Share these sign-in details now. The password is shown once and is not stored anywhere you can read it.</p><div class="pre">Email: ${esc(r.email)}
+Role: ${esc(r.role)}
+Password: ${esc(r.password)}</div><div class="mf"><button class="btn" data-a="closeModal">Done</button></div>`);repaint()}
+  catch(e){toast(e.message,{bad:true})}};
+};
+ACT.pwOpen=()=>{openModal(`<h2>Change your password</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Current password</label><input class="inp" id="pw1" type="password" autocomplete="current-password"></div><div class="field"><label>New password (8 characters or more)</label><input class="inp" id="pw2" type="password" autocomplete="new-password"></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="pw3">Change password</button></div>`);
+ $('#pw3').onclick=async()=>{const cur=$('#pw1').value,nw=$('#pw2').value;if(nw.length<8){toast('Use at least 8 characters.',{bad:true});return}
+  try{await api.post('/auth/password',{current:cur,new:nw});closeModal();toast('Password changed.')}catch(e){toast(e.message,{bad:true})}};
 };
 ACT.repOff=async t=>{
  const u=U(idOf(t));let aff;

@@ -11,6 +11,7 @@ Roles: `Admin` (everything), `Manager` (campaigns, prompts, controls, kill switc
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/auth/login` | POST | `{email, password}` returns `{token, user}` |
+| `/auth/password` | POST | `{current, new}` changes the signed-in user's own password (8 characters or more) |
 | `/state` | GET | The whole workspace the UI reads. Reps get only their campaigns |
 | `/state/sig` | GET | A cheap signature the UI polls every 3 seconds. The UI fetches `/state` only when it changes |
 | `/public/campaigns` | GET | Campaign cards for the sign-in screen |
@@ -61,7 +62,7 @@ Roles: `Admin` (everything), `Manager` (campaigns, prompts, controls, kill switc
 
 ## Reps, suppression, integrations, demo tools
 
-`GET /reps`, `POST /reps`, `PATCH /reps/{id}`, `GET /reps/{id}/affected`, `POST /reps/{id}/offboard`, `POST /reps/{id}/reassign`. `POST /suppression`, `DELETE /suppression/{id}`. `POST /integrations/{key}/pause`, `/mode`, `/test`. Demo mode only: `POST /demo/advance-clock`, `/demo/play-call`, `/demo/reset`.
+`GET /reps`, `POST /users` (admin only: `{name, role, email?, rep_limit?}` returns the new user and a generated password, shown once), `PATCH /reps/{id}`, `GET /reps/{id}/affected`, `POST /reps/{id}/offboard`, `POST /reps/{id}/reassign`. `POST /suppression`, `DELETE /suppression/{id}`. `POST /integrations/{key}/pause`, `/mode`, `/test`. Demo mode only: `POST /demo/advance-clock`, `/demo/play-call`, `/demo/reset`.
 
 ## Analytics and knowledge
 

@@ -65,6 +65,64 @@
         }
       }
     },
+    "/auth/password": {
+      "post": {
+        "summary": "Change Password",
+        "operationId": "change_password_auth_password_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Change Password Auth Password Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/state": {
       "get": {
         "summary": "Get State",
@@ -1980,6 +2038,74 @@
         }
       }
     },
+    "/enrollments/{eid}/linkedin-reply": {
+      "post": {
+        "summary": "Linkedin Reply",
+        "description": "A rep pastes a reply they received on LinkedIn. It takes the same path as a Gmail or SMS reply.",
+        "operationId": "linkedin_reply_enrollments__eid__linkedin_reply_post",
+        "parameters": [
+          {
+            "name": "eid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Eid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Linkedin Reply Enrollments  Eid  Linkedin Reply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/activity": {
       "get": {
         "summary": "Activity",
@@ -3229,10 +3355,13 @@
             }
           }
         }
-      },
+      }
+    },
+    "/users": {
       "post": {
-        "summary": "Add Rep",
-        "operationId": "add_rep_reps_post",
+        "summary": "Add User",
+        "description": "An admin adds a rep, manager or admin. The generated password is returned once and only its hash is stored.",
+        "operationId": "add_user_users_post",
         "parameters": [
           {
             "name": "authorization",
@@ -3256,7 +3385,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RepBody"
+                "$ref": "#/components/schemas/UserBody"
               }
             }
           }
@@ -3269,7 +3398,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Add Rep Reps Post"
+                  "title": "Response Add User Users Post"
                 }
               }
             }
@@ -4141,6 +4270,67 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Outcome Voice Outcome Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice/outcome/dronahq": {
+      "post": {
+        "summary": "Outcome Dronahq",
+        "description": "The DronaHQ Voice post-call webhook as DronaHQ sends it: one transcript text, call data, and the context our briefing returned. A call we did not place is acknowledged, not rejected, so DronaHQ does not retry it and its Test button passes.",
+        "operationId": "outcome_dronahq_voice_outcome_dronahq_post",
+        "parameters": [
+          {
+            "name": "x-cadence-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cadence-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Outcome Dronahq Voice Outcome Dronahq Post"
                 }
               }
             }
@@ -5644,6 +5834,26 @@
         ],
         "title": "OutcomeBody"
       },
+      "PasswordBody": {
+        "properties": {
+          "current": {
+            "type": "string",
+            "title": "Current"
+          },
+          "new": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "new"
+        ],
+        "title": "PasswordBody"
+      },
       "PlayCallBody": {
         "properties": {
           "enrollment_id": {
@@ -5673,24 +5883,6 @@
         },
         "type": "object",
         "title": "ReasonBody"
-      },
-      "RepBody": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "rep_limit": {
-            "type": "integer",
-            "title": "Rep Limit",
-            "default": 30
-          }
-        },
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "RepBody"
       },
       "RepPatch": {
         "properties": {
@@ -5934,6 +6126,50 @@
           "text"
         ],
         "title": "UploadBody"
+      },
+      "UserBody": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Admin",
+              "Manager",
+              "Rep"
+            ],
+            "title": "Role",
+            "default": "Rep"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "rep_limit": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Rep Limit",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "UserBody"
       },
       "ValidationError": {
         "properties": {

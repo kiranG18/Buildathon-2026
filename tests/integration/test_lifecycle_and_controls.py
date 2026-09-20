@@ -155,18 +155,46 @@ def test_analytics_numbers_equal_database_counts(seeded, client, auth):
     assert rows["C1"]["cost_per_prospect"] > 0
 
 
-def test_only_an_admin_adds_a_rep_and_the_new_rep_can_sign_in_and_is_scoped(seeded, client, auth):
-    body = {"name": "Riya Sen", "rep_limit": 12}
+def test_only_an_admin_adds_users_with_a_role_and_a_private_password(seeded, client, auth):
+    body = {"name": "Riya Sen", "role": "Rep", "rep_limit": 12}
     for who in ("ava@helix.demo", "priya@helix.demo"):
-        assert client.post("/reps", headers=auth(who), json=body).status_code == 403
-    r = client.post("/reps", headers=auth("admin@helix.demo"), json=body)
+        assert client.post("/users", headers=auth(who), json=body).status_code == 403
+    admin = auth("admin@helix.demo")
+    r = client.post("/users", headers=admin, json=body)
     assert r.status_code == 201
-    login = client.post("/auth/login", json={"email": "riya.sen@helix.demo", "password": "helix-demo"})
+    made = r.json()
+    assert made["email"] == "riya.sen@helix.demo" and made["password"] != "helix-demo" and len(made["password"]) >= 12
+    assert client.post("/users", headers=admin, json=body).status_code == 409
+    assert client.post("/users", headers=admin, json={"name": "X", "role": "Owner"}).status_code == 400
+    assert client.post("/auth/login", json={"email": made["email"], "password": "helix-demo"}).status_code == 401
+    login = client.post("/auth/login", json={"email": made["email"], "password": made["password"]})
     assert login.status_code == 200 and login.json()["user"]["role"] == "Rep"
     h = {"Authorization": "Bearer " + login.json()["token"]}
     state = client.get("/state", headers=h).json()
     assert state["camps"] == [] and state["enr"] == []
-    assert client.post("/reps", headers=h, json=body).status_code == 403
+    assert client.post("/users", headers=h, json=body).status_code == 403
     assert client.post("/kill-switch", headers=h, json={"active": True, "reason": "x"}).status_code == 403
-    listed = {x["id"]: x for x in client.get("/reps", headers=h).json()}
-    assert listed[r.json()["id"]]["limits"] == 12
+    assert {x["id"]: x for x in client.get("/reps", headers=h).json()}[made["id"]]["limits"] == 12
+    with tx() as db:
+        assert made["password"] not in json.dumps(db.q("select * from activity order by id desc limit 5"), default=str)
+
+
+def test_an_admin_adds_a_manager_who_can_manage_but_not_add_users(seeded, client, auth):
+    made = client.post("/users", headers=auth("admin@helix.demo"), json={"name": "Kavya Rao", "role": "Manager", "email": "Kavya@Team.Example"}).json()
+    assert made["email"] == "kavya@team.example" and made["role"] == "Manager"
+    login = client.post("/auth/login", json={"email": "KAVYA@team.example", "password": made["password"]})
+    assert login.status_code == 200 and login.json()["user"]["role"] == "Manager"
+    h = {"Authorization": "Bearer " + login.json()["token"]}
+    assert len(client.get("/state", headers=h).json()["camps"]) == 4
+    assert client.post("/users", headers=h, json={"name": "Nope"}).status_code == 403
+    assert client.post("/kill-switch", headers=h, json={"active": False}).status_code == 200
+
+
+def test_a_user_changes_their_own_password(seeded, client, auth):
+    h = auth("ava@helix.demo")
+    assert client.post("/auth/password", headers=h, json={"current": "wrong-password", "new": "a-better-pass1"}).status_code == 401
+    assert client.post("/auth/password", headers=h, json={"current": "helix-demo", "new": "short"}).status_code == 400
+    assert client.post("/auth/password", json={"current": "helix-demo", "new": "a-better-pass1"}).status_code == 401
+    assert client.post("/auth/password", headers=h, json={"current": "helix-demo", "new": "a-better-pass1"}).status_code == 200
+    assert client.post("/auth/login", json={"email": "ava@helix.demo", "password": "helix-demo"}).status_code == 401
+    assert client.post("/auth/login", json={"email": "ava@helix.demo", "password": "a-better-pass1"}).status_code == 200
