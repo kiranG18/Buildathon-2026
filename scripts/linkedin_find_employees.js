@@ -81,6 +81,20 @@ function isAuthWall(url) {
   return url.includes('/login') || url.includes('/authwall') || url.includes('/checkpoint');
 }
 
+// LinkedIn is often still redirecting right after a sign-in, which aborts a navigation. Wait and try again a few times.
+async function gotoWithRetry(page, url) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      return;
+    } catch (e) {
+      if (attempt >= 3 || !/ERR_ABORTED|net::|Navigation/.test(String(e.message))) throw e;
+      console.log(`[LinkedIn Find] Navigation was interrupted (${String(e.message).split(' at ')[0]}). Retrying in 5 seconds...`);
+      await sleep(5000);
+    }
+  }
+}
+
 function launch(headed, userDataDir) {
   const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   if (!fs.existsSync(chromePath)) {
@@ -174,7 +188,7 @@ async function run() {
 
     const url = searchUrl();
     console.log(`[LinkedIn Find] Navigating to ${url}...`);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await gotoWithRetry(page, url);
     await sleep(3500);
 
     if (isAuthWall(page.url())) {
@@ -185,7 +199,7 @@ async function run() {
       page = signedIn.page;
       headed = true;
       console.log(`[LinkedIn Find] Re-navigating to ${url}...`);
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await gotoWithRetry(page, url);
       await sleep(3500);
       if (isAuthWall(page.url())) {
         await page.screenshot({ path: 'linkedin_find_auth_required.png' });
