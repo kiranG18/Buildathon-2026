@@ -431,11 +431,15 @@ function campConfig(c,ck){
  ${c.status==='draft'?`<div class="card"><div class="cardhead"><div class="h3">Pre-launch checklist</div></div>${ckList(ck)}</div>`:''}</div>`;
 }
 /* ---------- create campaign ---------- */
-function newCf(){const defaultReps=(typeof S!=='undefined'&&S&&S.users)?S.users.filter(u=>u.role==='Rep'&&u.active).slice(0,1).map(u=>u.id):[];return{id:null,tpl:'',name:'',objective:'',roles:'',geo:'',exclusions:'',size:'',refs:'',agents:Object.fromEntries(AGENTS.map(a=>[a.k,true])),thr:70,channels:{email:true,linkedin:false,sms:false,voice:false},cap:30,first:false,voice:true,reply:true,tone:'',docs:[],reps:defaultReps,dry:null}}
+function newCf(){
+ const defaultReps=(typeof S!=='undefined'&&S&&S.users)?S.users.filter(u=>u.role==='Rep'&&u.active).slice(0,1).map(u=>u.id):[];
+ const defaultDocs=(typeof S!=='undefined'&&S&&S.kb&&S.kb.docs)?S.kb.docs.filter(d=>d.scope==='C1'||d.scope==='global').map(d=>d.id):[];
+ return{id:null,tpl:'C1',name:'',objective:'Automate internal tools intake and workflows',roles:'VP Engineering, Head of Platform, CTO',geo:'North America',exclusions:'Companies under 50 staff',size:'Series B to D',refs:'',agents:Object.fromEntries(AGENTS.map(a=>[a.k,true])),thr:70,channels:{email:true,linkedin:false,sms:false,voice:false},cap:30,first:false,voice:true,reply:true,tone:'Direct, technical, peer-to-peer without buzzwords.',docs:defaultDocs,reps:defaultReps,dry:null};
+}
 function cfFill(cf,k){const c=C(k);Object.assign(cf,{tpl:k,objective:c.objective,roles:c.roles.join(', '),geo:c.geoList.join(', '),exclusions:c.exclusions.join(', '),size:c.icp,tone:c.tone,thr:c.thr,cap:c.cap,first:c.appr.first,voice:c.appr.voice,reply:c.appr.reply,channels:Object.assign({},c.channels),reps:c.reps.slice(),docs:S.kb.docs.filter(d=>d.scope===k).map(d=>d.id),dry:null})}
 function cfCk(cf){
  const split=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
- const docs=S.kb.docs.filter(d=>cf.docs.includes(d.id));const chunks=new Set();docs.forEach(d=>d.chunks.forEach(k=>chunks.add(k)));
+ const docs=S.kb.docs.filter(d=>cf.docs.includes(d.id)||d.scope==='global');const chunks=new Set();docs.forEach(d=>d.chunks.forEach(k=>chunks.add(k)));
  const hasCase=docs.some(d=>d.type==='case study'),hasObj=docs.some(d=>d.type==='objections');
  const chOk=Object.keys(cf.channels).filter(k=>cf.channels[k]&&S.integ[{email:'gmail',linkedin:'linkedin',sms:'twilio',voice:'voice'}[k]].status==='ok');
  const reps=cf.reps.map(U).filter(u=>u&&u.active&&u.limit>0);

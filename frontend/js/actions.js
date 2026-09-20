@@ -142,8 +142,8 @@ ACT.cfDry=async()=>{
  cf.dry={run:true,i:1};refreshCk();
  try{
   const id=await cfSave();const r=await api.post('/campaigns/'+id+'/dry-run');
-  const bad=r.results.find(x=>!x.ok);
-  cf.dry={done:true,ok:r.grounding_passed,key:JSON.stringify([cf.tpl,cf.roles,cf.geo,cf.exclusions,cf.tone,cf.docs,cf.channels]),sample:r.sample,agent:bad?bad.agent:'',msg:bad?bad.output_summary:''};
+  const bad=(r.results||[]).find(x=>!x.ok);
+  cf.dry={done:true,ok:!!r.grounding_passed,key:JSON.stringify([cf.tpl,cf.roles,cf.geo,cf.exclusions,cf.tone,cf.docs,cf.channels]),sample:r.sample||'',agent:bad?bad.agent:'',msg:bad?bad.output_summary:''};
  }catch(e){cf.dry={done:true,ok:false,agent:'Setup',msg:e.message,key:''}}
  refreshCk();
 };

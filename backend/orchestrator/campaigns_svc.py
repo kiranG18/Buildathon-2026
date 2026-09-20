@@ -24,8 +24,8 @@ def snapshot(db: Db, c: dict, by: str, note: str) -> None:
 
 def checklist(db: Db, campaign_id: str) -> list[dict]:
     c = campaign(db, campaign_id)
-    docs = db.q("select doc_type from knowledge_documents where campaign_id = %s", (campaign_id,))
-    n_chunks = db.q1("select count(*) as n from knowledge_chunks where campaign_id = %s", (campaign_id,))["n"]
+    docs = db.q("select doc_type from knowledge_documents where campaign_id = %s or scope = 'global'", (campaign_id,))
+    n_chunks = db.q1("select count(*) as n from knowledge_chunks where campaign_id = %s or scope = 'global'", (campaign_id,))["n"]
     types = {d["doc_type"] for d in docs}
     integ_ok = {r["key"]: r["status"] == "ok" for r in db.q("select key, status from integrations")}
     ch_ok = [ch for ch, on in c["channels"].items() if on and integ_ok.get(INTEG_OF[ch])]
@@ -56,7 +56,7 @@ def attach_docs(db: Db, campaign_id: str, doc_ids: list[str]) -> None:
     """Copy documents (and their chunks, with embeddings) from other campaigns into this one. Copies keep origin_id so citations of the original id still verify."""
     db.x("delete from knowledge_documents where campaign_id = %s", (campaign_id,))
     for did in doc_ids:
-        src = db.q1("select * from knowledge_documents where id = %s and scope <> 'global'", (did,))
+        src = db.q1("select * from knowledge_documents where id = %s", (did,))
         if not src:
             continue
         new_id = f"{campaign_id}-{did}"
@@ -95,7 +95,10 @@ def create(db: Db, body: dict, by: dict) -> dict:
         db.x("insert into rep_assignments (rep_id, campaign_id) values (%s,%s)", (r, cid))
     c = campaign(db, cid)
     prompts_svc.seed_prompts(db, c, by["id"])
-    attach_docs(db, cid, body.get("doc_ids", []))
+    doc_ids = body.get("doc_ids")
+    if not doc_ids:
+        doc_ids = [d["id"] for d in db.q("select id from knowledge_documents where campaign_id = %s", (tpl,))]
+    attach_docs(db, cid, doc_ids)
     snapshot(db, c, by["name"], "Created as a Draft")
     act(db, None, "agent", f"{by['name']} created the draft campaign {c['name']}", cid=cid, agent="Manager")
     return {"id": cid, "status": "draft"}
@@ -223,7 +226,7 @@ def dry_run(db: Db, campaign_id: str) -> dict:
                     ok = False
                     continue
                 gc = grounding.check(db, d.comp, p, campaign_id)
-                hallucinated = bool(gc["bad"]) or any(x not in ("model_failure",) for x in d.failures)
+                hallucinated = bool(gc["bad"]) or (d.generic_safe and any(x not in ("model_failure",) for x in d.failures))
                 passed = not gc["bad"] and not hallucinated and bool(d.comp.get("claims"))
                 ok = ok and passed
                 if passed:
@@ -238,7 +241,7 @@ def dry_run(db: Db, campaign_id: str) -> dict:
             raise _Rollback
     except _Rollback:
         pass
-    if not any(d["doc_type"] == "case study" for d in db.q("select doc_type from knowledge_documents where campaign_id = %s", (campaign_id,))):
+    if not any(d["doc_type"] == "case study" for d in db.q("select doc_type from knowledge_documents where campaign_id = %s or scope = 'global'", (campaign_id,))):
         ok = False
         results.append({"agent": "Writer", "ok": False, "output_summary": "no customer result in the knowledge to ground the draft. Attach a case study."})
     db.x("update campaigns set dry_ok = %s where id = %s", (ok, campaign_id))

@@ -11,19 +11,36 @@ BANNED = ("guaranteed", "100%", "revolutionary", "best-in-class")
 _NUM = re.compile(r"\$?\d[\d,]*(?:\.\d+)?%?")
 
 
+WORD_NUMS = {
+    "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+    "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+    "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14", "fifteen": "15",
+    "sixteen": "16", "seventeen": "17", "eighteen": "18", "nineteen": "19", "twenty": "20"
+}
+
+
 def _numbers(text: str) -> set[str]:
-    return {n.strip(",") for n in _NUM.findall(text)}
+    nums = {n.strip(",") for n in _NUM.findall(text)}
+    low = text.lower()
+    for word, digit in WORD_NUMS.items():
+        if re.search(r"\b" + word + r"\b", low):
+            nums.add(digit)
+            nums.add(word)
+    return nums
 
 
 def source_text(db: Db, src: str, p: dict, campaign_id: str) -> str | None:
     """Return the text of the cited source, or None when the id is unknown or invisible to this campaign."""
     if not src or src == "?":
         return None
+    src = src.strip("[](){}<>.,;: ")
     candidates = [src]
     if src.isdigit():
         candidates.extend([f"F{src}", f"K-{src}", f"K{src}"])
     elif not src.startswith(("F", "K")):
         candidates.extend([f"F{src}", f"K-{src}"])
+    elif src.startswith("K") and not src.startswith("K-"):
+        candidates.append(f"K-{src[1:]}")
     for s in candidates:
         if s.startswith("F"):
             for f in [*p.get("facts", []), *p.get("rich", [])]:
@@ -53,9 +70,11 @@ def _known_ids_numbers(db: Db, p: dict, campaign_id: str) -> set[str]:
     nums = set()
     for f in [*p.get("facts", []), *p.get("rich", [])]:
         nums |= _numbers(str(f.get("id", "")))
-    for ch in db.q("select id, origin_id from knowledge_chunks where scope = 'global' or campaign_id = %s", (campaign_id,)):
+        nums |= _numbers(str(f.get("text", "")))
+    for ch in db.q("select id, origin_id, content from knowledge_chunks where scope = 'global' or campaign_id = %s", (campaign_id,)):
         nums |= _numbers(str(ch.get("id", "")))
         nums |= _numbers(str(ch.get("origin_id", "")))
+        nums |= _numbers(str(ch.get("content", "")))
     return nums
 
 

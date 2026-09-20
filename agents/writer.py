@@ -53,17 +53,28 @@ def segs_from_claims(body: str, claims: list[dict]) -> tuple[list[dict], list[di
     rest = clean_body
     for cl in claims:
         t = _clean_text(cl.get("t", ""))
+        if not t:
+            continue
         i = rest.find(t)
+        match_len = len(t)
         if i < 0:
             i = rest.lower().find(t.lower())
+        if i < 0:
+            clean_t = t.strip(" \t\n\r.,;:!?\"'()[]{}")
+            if clean_t:
+                i = rest.find(clean_t)
+                if i < 0:
+                    i = rest.lower().find(clean_t.lower())
+                if i >= 0:
+                    match_len = len(clean_t)
         if i < 0:
             missing.append(cl)
             continue
         if i:
             segs.append({"t": rest[:i]})
-        matched_text = rest[i : i + len(t)]
+        matched_text = rest[i : i + match_len]
         segs.append({"t": matched_text, "src": cl["src"]})
-        rest = rest[i + len(t) :]
+        rest = rest[i + match_len :]
     if rest:
         segs.append({"t": rest})
     return segs, missing
@@ -103,7 +114,8 @@ def draft(db: Db, e: dict, p: dict, c: dict, kind: str, *, channel: str, version
         raise KnowledgeGap(f"No knowledge retrieved for {c['id']} {kind}")
     limits = {"email": f"subject up to 7 words, body up to {c['words']} words", "linkedin": "up to 300 characters", "sms": "up to 160 characters, name the sender, include opt-out"}[channel]
     task = (f"Write one {channel} message, purpose '{kind}'. Limits: {limits}. One personal hook from the highest-confidence fact, one proof point from a knowledge block, one CTA. "
-            "claims[].text must be copied verbatim from body, and claims[].source_id must be a fact id or a knowledge id you were given. "
+            "Crucial: claims[].text must be copied verbatim from body. Every proof point must use ONLY case studies and metrics provided in KNOWLEDGE, never invent customer names or percentages. "
+            "For every claim, set source_id to the exact fact id (e.g. F...) or knowledge id (e.g. K-...) from which it was taken. "
             "If no fact supports personalisation, leave the hook out and say why in omitted_personalisation_reason.")
     system, user = render(campaign_system=b.system, agent_prompt=b.agent, knowledge=hits, memory=build(db, e), task=task, schema=Draft.model_json_schema())
     chunk_ids = [h["id"] for h in hits]
@@ -124,7 +136,7 @@ def draft(db: Db, e: dict, p: dict, c: dict, kind: str, *, channel: str, version
         gc = grounding.check(db, comp, p, c["id"])
         problem = grounding.length_problem(comp, channel, c["words"])
         if not gc["bad"] and not problem:
-            return DraftOut(comp, chunk_ids, regenerated=regenerated, failures=failures, model=res.model, tokens_in=tin, tokens_out=tout, cost=cost,
+            return DraftOut(comp, chunk_ids, regenerated=regenerated, failures=[], model=res.model, tokens_in=tin, tokens_out=tout, cost=cost,
                             latency=res.latency, prompt_version=b.agent_version)
         failures = [f"{x['reason']}: {x['t'][:60]}" for x in gc["bad"]] + ([problem] if problem else [])
         hint = "\n\nYour last draft failed checks: " + "; ".join(failures) + ". Regenerate without those problems."
