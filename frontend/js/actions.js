@@ -130,12 +130,12 @@ async function cfSave(){
  return cf.id;
 }
 ACT.cfSave=async()=>{try{const id=await cfSave();if(id){toast('Saved as a Draft.');go('/campaigns/'+id+'/overview')}}catch(e){toast(e.message,{bad:true})}};
-ACT.dryNow=async t=>{const id=idOf(t);toast('Running the dry run on 3 sample prospects. This can take up to a minute.');
- try{const r=await api.post('/campaigns/'+id+'/dry-run');await hydrate(true);repaint();
+ACT.dryNow=async t=>{const id=idOf(t);if((UI.dry||{})[id])return;UI.dry=Object.assign(UI.dry||{},{[id]:true});repaint();toast('Running the dry run on 3 sample prospects. This can take up to a minute.');
+ try{const r=await api.post('/campaigns/'+id+'/dry-run');UI.dry[id]=false;await hydrate(true);repaint();
   if(r.grounding_passed){toast('Dry run passed. Every claim in the 3 samples has evidence.');return}
   const bad=(r.results||[]).filter(x=>!x.ok);
   openModal(`<h2>The dry run did not pass</h2><p class="muted" style="margin:6px 0 12px">Nothing was stored or sent. Fix this and run it again.</p><div class="col gap8">${bad.map(x=>`<div class="banner bad" style="font-weight:450">${esc(x.agent)}: ${esc(x.output_summary)}</div>`).join('')||'<div class="banner bad">The grounding check failed.</div>'}</div><div class="mf"><button class="btn pri" data-a="closeModal">Close</button></div>`)
- }catch(e){toast(e.message,{bad:true})}};
+ }catch(e){UI.dry[id]=false;repaint();toast(e.message,{bad:true})}};
 ACT.cfActivate=async()=>{
  if(!cfCk(UI.cf).every(x=>x.ok)){toast('Finish the checklist first.',{bad:true});return}
  try{const id=await cfSave();if(!id)return;await api.post('/campaigns/'+id+'/activate');UI.cf=null;await hydrate(true);toast('Campaign is Live. Add prospects with Simulate discovery.');go('/campaigns/'+id+'/overview')}
