@@ -2,6 +2,7 @@ from fastapi import APIRouter, Body, Depends
 
 from agents.models import CallOutcome
 from backend.core.db import Db
+from backend.core.errors import NotFound
 from backend.core.security import db_dep, webhook_guard
 from backend.orchestrator import voice
 
@@ -26,6 +27,9 @@ def outcome(body: OutcomeBody, db: Db = Depends(db_dep)) -> dict:
 
 @router.post("/voice/outcome/dronahq", dependencies=[Depends(webhook_guard)])
 def outcome_dronahq(payload: dict = Body(...), db: Db = Depends(db_dep)) -> dict:
-    """The DronaHQ Voice post-call webhook as DronaHQ sends it: one transcript text, call data, and the context our briefing returned."""
-    body = OutcomeBody(**voice.outcome_from_dronahq(db, payload))
+    """The DronaHQ Voice post-call webhook as DronaHQ sends it: one transcript text, call data, and the context our briefing returned. A call we did not place is acknowledged, not rejected, so DronaHQ does not retry it and its Test button passes."""
+    try:
+        body = OutcomeBody(**voice.outcome_from_dronahq(db, payload))
+    except NotFound:
+        return {"ok": True, "matched": False}
     return voice.ingest_outcome(db, body.enrollment_id, body.model_dump())

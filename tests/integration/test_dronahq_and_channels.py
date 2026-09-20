@@ -181,6 +181,11 @@ def test_a11_dronahq_post_call_payload_is_translated(seeded, client):
         assert db.q1("select state from enrollments where id = %s", (e["id"],))["state"] == "meeting"
 
 
+def test_a11_dronahq_post_call_for_an_unknown_call_is_acknowledged(seeded, client):
+    r = client.post("/voice/outcome/dronahq", json={"body": {"transcript": "Agent: Hi"}}, headers=SECRET)
+    assert r.status_code == 200 and r.json() == {"ok": True, "matched": False}
+
+
 def test_a11_dronahq_payload_matches_by_dialled_number_and_defaults_the_disposition(seeded):
     from backend.core import clock
     from backend.orchestrator import voice
