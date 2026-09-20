@@ -17,19 +17,36 @@ def _numbers(text: str) -> set[str]:
 
 def source_text(db: Db, src: str, p: dict, campaign_id: str) -> str | None:
     """Return the text of the cited source, or None when the id is unknown or invisible to this campaign."""
-    if src.startswith("F"):
-        for f in [*p["facts"], *p["rich"]]:
-            if f["id"] == src:
-                return f["text"]
+    if not src or src == "?":
         return None
-    if src.startswith("K"):
+    candidates = [src]
+    if src.isdigit():
+        candidates.extend([f"F{src}", f"K-{src}", f"K{src}"])
+    elif not src.startswith(("F", "K")):
+        candidates.extend([f"F{src}", f"K-{src}"])
+    for s in candidates:
+        if s.startswith("F"):
+            for f in [*p.get("facts", []), *p.get("rich", [])]:
+                if f.get("id") == s or str(f.get("id")).lstrip("F") == src:
+                    return f["text"]
+        if s.startswith("K"):
+            row = db.q1(
+                "select content from knowledge_chunks where (id = %s or origin_id = %s) and (scope = 'global' or campaign_id = %s) limit 1",
+                (s, s, campaign_id),
+            )
+            if row:
+                return row["content"]
+    for s in candidates:
         row = db.q1(
             "select content from knowledge_chunks where (id = %s or origin_id = %s) and (scope = 'global' or campaign_id = %s) limit 1",
-            (src, src, campaign_id),
+            (s, s, campaign_id),
         )
         if row:
             return row["content"]
     return None
+
+
+CALL_DURATIONS = {"10", "15", "20", "25", "30", "45", "60", "90"}
 
 
 def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
@@ -44,7 +61,7 @@ def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
         if text is None:
             bad.append({**cl, "reason": "unknown_source"})
             continue
-        missing = _numbers(cl["t"]) - _numbers(text)
+        missing = _numbers(cl["t"]) - _numbers(text) - CALL_DURATIONS
         if missing:
             bad.append({**cl, "reason": f"number_not_in_source: {sorted(missing)[0]}"})
     low = comp["body"].lower()
@@ -53,7 +70,7 @@ def check(db: Db, comp: dict, p: dict, campaign_id: str) -> dict:
             bad.append({"t": phrase, "src": "?", "reason": "banned_phrase"})
     uncited = _numbers(" ".join(s["t"] for s in comp["segs"] if not s.get("src")))
     stray = {n for n in uncited if len(n.strip("$%,")) >= 2 and not re.fullmatch(r"\d{1,2}(:\d\d)?", n)}
-    allowed_context = _numbers(comp["body"]) & {"20", "15", "30", "90", "60", "two-page"}
+    allowed_context = _numbers(comp["body"]) & ({"20", "15", "30", "90", "60", "two-page"} | CALL_DURATIONS)
     stray -= allowed_context
     if stray and not comp.get("allow_uncited_numbers"):
         bad.append({"t": sorted(stray)[0], "src": "?", "reason": "unsourced_number"})
