@@ -237,21 +237,40 @@ def signature(db: Db) -> str:
 
 
 _cache: dict[str, tuple[str, float, dict]] = {}
-CACHE_MAX_AGE_S = 10.0
+_sig_cache: tuple[float, str] | None = None
+SIG_CACHE_TTL = 1.0
+
+
+def get_cached_signature(db: Db) -> str:
+    global _sig_cache
+    now = time.monotonic()
+    if _sig_cache and (now - _sig_cache[0]) < SIG_CACHE_TTL:
+        return _sig_cache[1]
+    sig = signature(db)
+    _sig_cache = (now, sig)
+    return sig
+
+
+def invalidate_state_cache() -> None:
+    global _cache, _sig_cache
+    _cache.clear()
+    _sig_cache = None
 
 
 @router.get("/state")
 def get_state(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
     """Rebuilding takes two dozen queries, so an unchanged workspace is served from memory after one cheap signature query."""
-    sig = signature(db)
-    hit = _cache.get(user["id"])
-    if hit and hit[0] == sig and time.monotonic() - hit[1] < CACHE_MAX_AGE_S:
-        return {**hit[2], "now": ms(clock.now())}
+    cache_key = "manager" if not user.is_rep else user["id"]
+    sig = get_cached_signature(db)
+    hit = _cache.get(cache_key)
+    if hit and hit[0] == sig:
+        cached_out = hit[2]
+        return {**cached_out, "now": ms(clock.now()), "user": {k: user[k] for k in ("id", "name", "role", "email")}}
     out = build_state(db, user)
-    _cache[user["id"]] = (sig, time.monotonic(), out)
+    _cache[cache_key] = (sig, time.monotonic(), out)
     return out
 
 
 @router.get("/state/sig")
 def get_sig(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
-    return {"sig": signature(db), "now": ms(clock.now())}
+    return {"sig": get_cached_signature(db), "now": ms(clock.now())}

@@ -4,7 +4,7 @@ Claude Code appends to this file and prints a STOP block whenever it needs you. 
 
 Field names inside DronaHQ, Twilio, and Google screens can differ from the text below. Send Claude Code a screenshot of any screen that does not match.
 
-Status: MA-01, MA-02, MA-03, MA-06, MA-07 and MA-10 are done. The app is live at https://buildathon-2026-production.up.railway.app. Still open: the uptime monitor in MA-06, then MA-11 (DronaHQ), MA-04 and MA-05 (keys), MA-08 and MA-09 (Gmail, Twilio), MA-12 (submission). Rotate the Supabase database password and update `DATABASE_URL` on Railway, because it was pasted into a chat.
+Status: MA-01, MA-02, MA-03, MA-06, MA-07 and MA-10 are done. The app is live at https://buildathon-2026-production.up.railway.app. Still open: the uptime monitor in MA-06, then MA-11 (DronaHQ), MA-04 and MA-05 (keys), MA-08 and MA-09 (Gmail, Twilio), MA-13 (Apollo - company enrichment only, people search is plan-blocked, confirmed live), MA-14 (Hunter + the local LinkedIn finder), MA-12 (submission). Rotate the Supabase database password and update `DATABASE_URL` on Railway, because it was pasted into a chat.
 
 ## MA-01 Local tools (done)
 
@@ -124,3 +124,41 @@ Built through the Vibe MCP as app 77710 and published. Public Access needs a lic
 - [ ] Read the submission portal form. Record extra fields, file limits and any earlier cut-off in `docs/submission.md`.
 - [ ] Record a backup video from the final build.
 - [ ] Submit by 11:00 PM Sunday. Post the social message that tags DronaHQ. Save the confirmation screenshot.
+
+## MA-14 Hunter.io and the LinkedIn finder (blocks real employee + email discovery)
+
+Apollo's free plan blocks people search and email reveal entirely (confirmed live, see MA-13). This is the real replacement: find a company's employees on LinkedIn directly (using your own logged-in session, since only your laptop has one - Railway has no browser), then look up each one's real email with Hunter.
+
+**Hunter.io key (optional - the pipeline works fully without it, just with a sandbox placeholder email instead of a verified one)**
+- [ ] Sign up at hunter.io if you can (free plan includes a small number of monthly searches). Blocked on 2026-09-20 for this team - hunter.io asked for a professional email address the team didn't have. A personal Gmail sometimes still works; otherwise skip this and ship with the sandbox placeholder.
+- [ ] If you do get in: Dashboard, API: copy your API key, set `HUNTER_API_KEY` in `.env` and on both Railway services.
+- [ ] Before trusting it, run one real `find_email` call and record the result here and in `docs/spikes.md` - not verified against a live key yet, only that Hunter's documented API shape is what `backend/integrations/hunter.py` expects.
+
+**LinkedIn finder (runs locally only, never on Railway)**
+- [ ] Just run it - no separate login step needed. If `.chrome_linkedin_profile/` has no valid session (or it expired), the script itself opens a real, visible Chrome window, waits for you to sign in, saves the session to `.env` and `.chrome_linkedin_profile/`, and continues the same run automatically. (`node scripts/linkedin_login.js` still exists as a standalone one-time login if you'd rather do that first.)
+- [ ] From this repo, or downloaded from the live site at `${BASE_URL}/tools/linkedin-finder.js`:
+  ```
+  node scripts/linkedin_find_employees.js --company "Acme Corp" --domain acme.com --titles "CTO,VP Engineering" --limit 5 \
+    --push-to https://buildathon-2026-production.up.railway.app --campaign C1
+  ```
+  (`--secret` is read from `WEBHOOK_SHARED_SECRET` in `.env` automatically if not passed.)
+- [ ] This scrapes LinkedIn's people-search results for the named company and pushes them to `/tools/linkedin-import`, which creates real prospects: real name, title and LinkedIn URL always; a real Hunter-verified email when `HUNTER_API_KEY` is set and Hunter finds one, otherwise a sandbox placeholder address (clearly logged as unverified - never sent to live by accident, since it won't match `ALLOWED_RECIPIENTS`).
+- [ ] **Known risk, accepted knowingly**: this automates a personal LinkedIn account's browser session to scrape search results, which is against LinkedIn's terms (same tradeoff `docs/report/report.md` section 6 already documents for the *sending* side - this extends it to search, and the login step now happens inline too). Real risk of that account being restricted or banned. Run it sparingly, and not on an account you can't afford to lose access to.
+- [ ] **Safety net**: none of this is required to submit. If it isn't finished by 11 PM, the seeded demo pool (`seed/static.json`: 10/6/4 fresh companies per campaign for on-demand Discover, 40/36/34 in the full pool) and the rehearsed demo cast (`seed/prototype_state.json`, loaded by `make reset`) are completely unaffected by any of tonight's changes and need nothing further.
+
+## MA-13 Apollo.io (company enrichment only - confirmed live against a real free-plan key)
+
+Tested for real against a free-plan key on 2026-09-20:
+
+| Endpoint | Result |
+| --- | --- |
+| `POST /mixed_people/search` (person search, what `discover()` would use to find people by ICP) | **403** `API_INACCESSIBLE` - "not included in your Free plan... even with a master key" |
+| `POST /people/match` (email reveal / person enrichment) | **403**, same reason |
+| `GET /organizations/enrich` (company facts for a known domain) | **200** - works |
+
+So on a free plan, `discover()` always falls back to the seeded pool (the search call it would need is blocked), and `/tools/enrich` and `discovery.import_linkedin` (MA-14) get real company facts but no person data from Apollo itself - person data now comes from the LinkedIn finder instead (MA-14).
+
+- [ ] Sign up at apollo.io if you don't already have a key.
+- [ ] Set `APOLLO_API_KEY` locally in `.env` and on both Railway services.
+- [ ] If you upgrade to a paid plan at any point, `discover()` and `/tools/enrich`'s person-match path activate automatically with no code changes - re-run the two blocked calls above and update this table.
+- [ ] `discover()`'s existing cap (max 10 per call) keeps credit use predictable regardless of plan.

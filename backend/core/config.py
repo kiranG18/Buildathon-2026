@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     llm_fallback_key: str = ""
     llm_fallback_model: str = "gemini-2.5-flash"
     embeddings_api_key: str = ""
+    apollo_api_key: str = ""
+    hunter_api_key: str = ""
     fail_llm: str = ""
     fail_embeddings: bool = False
     fail_channel: str = ""

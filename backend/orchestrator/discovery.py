@@ -1,4 +1,7 @@
-"""Prospect discovery and CSV import. Live scraping is out of scope, so discovery draws from the demo lead source (seed/static.json)."""
+"""Prospect discovery and CSV import. Discovery calls Apollo.io for real people matching the campaign's ICP when
+APOLLO_API_KEY is set (backend/integrations/apollo.py). Without a key, or when Apollo returns nothing usable, it
+falls back to the demo lead source (seed/static.json) - the same fallback pattern used for the LLM and embeddings
+providers elsewhere in this codebase."""
 
 import random
 import re
@@ -9,8 +12,12 @@ from backend.core import clock
 from backend.core.config import get_settings
 from backend.core.db import Db, J
 from backend.core.errors import StateConflict
+from backend.core.logging import log
+from backend.integrations import apollo, hunter
 from backend.orchestrator.defs import static, tk
 from backend.orchestrator.repo import act, campaign, enqueue, new_enrollment
+
+_STOP_KW = {"the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "is", "are", "with", "at", "by"}
 
 FN_US = "Alex Jordan Casey Morgan Riley Taylor Devon Jamie Elena Noah Grace Owen Maya Ethan Chloe Isaac Nora Caleb Ruth Felix Tessa Gabriel Lena Warren Iris Hugo Camille Reid Naomi Jonas Vera Miles Alma Silas Paige Rohan Delia Kenji Yara Bram Selma Tobias Wren Emmett Carmen Dario".split()
 LN_US = "Abbott Barnes Castillo Donnelly Everhart Fitch Grady Holloway Ibarra Jennings Kessler Lindgren Maddox Nakamura Ortega Pruitt Quinn Ramsey Sutter Talbot Underhill Vasquez Whitlock Yoon Zeller Ashby Brandt Corliss Dunmore Espinoza Faraday Gallagher Hartwell Iverson Kowalski Lockhart Mercer Novak Okoye Prescott".split()
@@ -42,6 +49,11 @@ def _tz(city: str, indian: bool) -> str:
 
 def _fact(fid: str, company: str, text: str, src: str, conf: str) -> dict:
     return {"id": fid, "text": text, "src": src, "conf": conf, "url": f"/demo-sources/{slug(company)}/{src}"}
+
+
+def _fact_real(fid: str, text: str, src: str, conf: str, url: str) -> dict:
+    """A fact whose source is a real URL (Apollo-sourced), not a fabricated /demo-sources/ page."""
+    return {"id": fid, "text": text, "src": src, "conf": conf, "url": url}
 
 
 def _rich(db: Db, p: dict, key: str, r: random.Random) -> list[dict]:
@@ -98,6 +110,78 @@ def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: rand
     return {"id": pid}
 
 
+def _keywords(c: dict) -> list[str]:
+    text = " ".join(x for x in (c["icp"], c["personas"], c["signals"]) if x)
+    toks = [t for t in re.findall(r"[A-Za-z][A-Za-z0-9+.-]{2,}", text) if t.lower() not in _STOP_KW]
+    seen: set[str] = set()
+    out = []
+    for t in toks:
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out[:8]
+
+
+def _make_prospect_from_apollo(db: Db, person: apollo.ApolloPerson, email: str, key: str) -> dict:
+    """Insert a real company and prospect from an Apollo hit. Facts carry the org's or the person's real URL."""
+    org = person.org
+    indian = key == "C2" or "india" in (org.city or "").lower()
+    cid = org.domain or (slug(org.name) + ".com")
+    db.x(
+        "insert into companies (id, name, domain, industry, staff, stage, city) values (%s,%s,%s,%s,%s,%s,%s) on conflict (id) do nothing",
+        (cid, org.name, org.domain or cid, org.industry, org.staff, "", org.city),
+    )
+    site = org.website_url or (f"https://{org.domain}" if org.domain else "")
+    about = f"{org.name} is a {org.industry.lower()} company with about {org.staff:,} staff." if org.industry and org.staff else (
+        f"{org.name} has about {org.staff:,} staff." if org.staff else f"{org.name}: {org.description or 'company details from Apollo'}."
+    )
+    facts = [_fact_real(db.nid("F"), about.strip(), "about", "High" if org.staff else "Medium", site)]
+    if org.description and org.description not in about:
+        facts.append(_fact_real(db.nid("F"), org.description, "about", "Medium", site))
+    rich = []
+    if person.linkedin_url:
+        rich.append(_fact_real(db.nid("F"), f"{person.name} is listed as {person.title or 'a contact'} at {org.name} on LinkedIn.", "linkedin", "High", person.linkedin_url))
+    pid = slug(person.name)
+    db.x(
+        """insert into prospects (id, company_id, full_name, first_name, title, email, phone, linkedin_url, region, timezone, facts, rich)
+           values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        (pid, cid, person.name, first_name(person.name), person.title, email.strip().lower(), person.phone or "", person.linkedin_url or "",
+         "IN" if indian else "US", _tz(org.city, indian), J(facts), J(rich)),
+    )
+    return {"id": pid}
+
+
+def _discover_live(db: Db, c: dict, campaign_id: str, key: str, n: int) -> list[dict]:
+    try:
+        people = apollo.search_people(list(c["roles"] or TITLES.get(key, [])), list(c["geo_list"] or []), _keywords(c), n)
+    except apollo.ApolloUnavailable:
+        return []
+    made = []
+    for person in people:
+        if len(made) >= n:
+            break
+        if not person.name:
+            continue
+        email = person.email
+        if person.email_locked or not email:
+            try:
+                revealed = apollo.reveal_contact(person.apollo_id) if person.apollo_id else None
+            except apollo.ApolloUnavailable:
+                revealed = None
+            if not revealed or not revealed.email:
+                continue
+            person, email = revealed, revealed.email
+        if db.q1("select 1 as x from prospects where id = %s", (slug(person.name),)) or db.q1("select 1 as x from prospects where lower(email) = lower(%s)", (email,)):
+            continue
+        pr = _make_prospect_from_apollo(db, person, email, key)
+        e = new_enrollment(db, pr["id"], campaign_id)
+        act(db, e, "discover", f"Discovered {person.name}, {person.title or 'contact'} at {person.org.name} via Apollo", agent="Researcher")
+        if c["status"] != "draft":
+            enqueue(db, e, "research")
+        made.append(e)
+    return made
+
+
 def _key_for(c: dict) -> str:
     t = tk(c)
     if t in ("C2", "C3"):
@@ -118,6 +202,11 @@ def discover(db: Db, campaign_id: str, n: int, by: dict | None = None) -> list[d
     if c["status"] in ("completed", "archived"):
         raise StateConflict("This campaign is closed")
     key = _key_for(c)
+    if get_settings().apollo_api_key:
+        made = _discover_live(db, c, campaign_id, key, n)
+        if made:
+            return made
+        log().warning("apollo discovery found nothing usable, falling back to the seeded pool", extra={"event": "apollo_fallback", "campaign_id": campaign_id})
     r = random.Random(js_hash(campaign_id) + db.q1("select count(*) as n from enrollments where campaign_id = %s", (campaign_id,))["n"] * 13)
     made = []
     for _ in range(n):
@@ -134,6 +223,72 @@ def discover(db: Db, campaign_id: str, n: int, by: dict | None = None) -> list[d
             enqueue(db, e, "research")
         made.append(e)
     return made
+
+
+def import_linkedin(db: Db, campaign_id: str, company: str, domain: str, people: list[dict], by: dict | None = None) -> dict:
+    """Real people found by scripts/linkedin_find_employees.js (run locally, against a real logged-in
+    LinkedIn session - see MANUAL_ACTIONS.md MA-14). Each entry is {name, title, profile_url}.
+
+    Company facts come from Apollo (organizations/enrich, works on the free plan) when a domain is given
+    and a key is configured. Each person's email comes from Hunter's Email Finder when a domain and a
+    Hunter key are configured; otherwise the prospect gets the same clearly-labelled sandbox placeholder
+    address used everywhere else in this codebase - never a guessed one, so it can never look like a real,
+    verified email it isn't, and it never matches ALLOWED_RECIPIENTS by accident."""
+    c = campaign(db, campaign_id)
+    if c["status"] in ("completed", "archived"):
+        raise StateConflict("This campaign is closed")
+    key = _key_for(c)
+    org = None
+    if domain and get_settings().apollo_api_key:
+        try:
+            org = apollo.enrich_domain(domain)["company"]
+        except apollo.ApolloUnavailable:
+            org = None
+    cid = domain or (org.domain if org else "") or (slug(company) + ".com")
+    db.x(
+        "insert into companies (id, name, domain, industry, staff, stage, city) values (%s,%s,%s,%s,%s,%s,%s) on conflict (id) do nothing",
+        (cid, (org.name if org else company) or company, domain or cid, org.industry if org else "", org.staff if org else 0, "", org.city if org else ""),
+    )
+    site = (org.website_url if org else "") or (f"https://{domain}" if domain else "")
+    created, skipped = [], 0
+    for person in people:
+        name = (person.get("name") or "").strip()
+        profile_url = (person.get("profile_url") or "").strip()
+        title = (person.get("title") or "").strip()
+        if not name or not profile_url:
+            skipped += 1
+            continue
+        pid = slug(name)
+        if db.q1("select 1 as x from prospects where id = %s", (pid,)) or db.q1("select 1 as x from prospects where linkedin_url = %s", (profile_url,)):
+            skipped += 1
+            continue
+        email, email_real = "", False
+        if domain and get_settings().hunter_api_key:
+            parts = name.split(" ", 1)
+            try:
+                found = hunter.find_email(parts[0], parts[1] if len(parts) > 1 else "", domain)
+                if found:
+                    email, email_real = found.email, True
+            except hunter.HunterUnavailable:
+                pass
+        if not email:
+            local, _, mail_domain = get_settings().seed_inbox_base.partition("@")
+            email = f"{local}+{slug(name).replace('-', '.')}@{mail_domain or 'gmail.com'}"
+        facts = [_fact_real(db.nid("F"), f"{name} is listed as {title or 'a contact'} at {company} on LinkedIn.", "linkedin", "High", profile_url)]
+        if org and org.description:
+            facts.append(_fact_real(db.nid("F"), org.description, "about", "Medium", site))
+        rich = [] if email_real else [_fact_real(db.nid("F"), "Email not verified by Hunter - sandbox address in use.", "about", "Low", profile_url)]
+        db.x(
+            """insert into prospects (id, company_id, full_name, first_name, title, email, phone, linkedin_url, region, timezone, facts, rich)
+               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (pid, cid, name, first_name(name), title, email.strip().lower(), "", profile_url, "IN" if key == "C2" else "US", _tz(org.city if org else "", key == "C2"), J(facts), J(rich)),
+        )
+        e = new_enrollment(db, pid, campaign_id)
+        act(db, e, "discover", f"Found {name}, {title or 'contact'} at {company} on LinkedIn" + (" (email verified by Hunter)" if email_real else " (email unverified, sandbox address)"), agent="Researcher")
+        if c["status"] != "draft":
+            enqueue(db, e, "research")
+        created.append(e)
+    return {"created": len(created), "skipped": skipped, "enrolled_ids": [e["id"] for e in created]}
 
 
 def import_rows(db: Db, campaign_id: str, rows: list[list[str]], by: dict) -> dict:
@@ -154,4 +309,4 @@ def import_rows(db: Db, campaign_id: str, rows: list[list[str]], by: dict) -> di
     return {"created": created, "deduped": deduped, "enrolled": created}
 
 
-__all__ = ["discover", "import_rows", "clock"]
+__all__ = ["discover", "import_rows", "import_linkedin", "clock"]

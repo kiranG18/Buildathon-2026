@@ -85,6 +85,10 @@ def create_app() -> FastAPI:
             clog.log().exception("unhandled error", extra={"path": request.url.path, "method": request.method})
             return envelope("internal_error", "Something went wrong on our side", 500)
         response.headers["x-request-id"] = rid
+        if request.url.path.startswith(("/js/", "/css/", "/fonts/")):
+            response.headers["Cache-Control"] = "public, max-age=86400"
+        elif request.url.path == "/" or request.url.path.endswith(".html"):
+            response.headers["Cache-Control"] = "no-cache"
         if request.url.path not in ("/health", "/state/sig"):
             clog.log().info(
                 "request", extra={"path": request.url.path, "method": request.method, "status": response.status_code, "duration_ms": int((time.monotonic() - t) * 1000)}

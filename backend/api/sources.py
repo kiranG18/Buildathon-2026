@@ -1,19 +1,31 @@
 """Hosted source pages for the demo prospects, and the enrichment tool the DronaHQ Researcher calls.
 
 Fictional companies have no web presence, so every fact keeps a real URL on this API. A judge who clicks an evidence link lands on the page the fact came from.
+
+For a domain not already in this workspace, /tools/enrich proxies Apollo.io when APOLLO_API_KEY is set, and returns
+real facts with real source URLs instead of the seeded pages.
+
+/tools/linkedin-finder.js serves scripts/linkedin_find_employees.js as a real download, and /tools/linkedin-import
+receives what it finds. That script needs a real logged-in LinkedIn session, which only exists on someone's own
+laptop (see MANUAL_ACTIONS.md MA-14) - this API never automates LinkedIn itself.
 """
 
 import html
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
+from backend.core.config import get_settings
 from backend.core.db import Db
 from backend.core.errors import NotFound
 from backend.core.security import db_dep, webhook_guard
+from backend.integrations import apollo
+from backend.orchestrator import discovery
 
 router = APIRouter()
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "linkedin_find_employees.js"
 
 BODY = {
     "careers": "Open roles: Senior Platform Engineer, Staff Engineer for Internal Tools, Platform Reliability Engineer.",
@@ -59,9 +71,53 @@ class EnrichBody(BaseModel):
 
 @router.post("/tools/enrich", dependencies=[Depends(webhook_guard)])
 def enrich(body: EnrichBody, db: Db = Depends(db_dep)) -> dict:
-    """Enrichment record for a domain. Demo mode serves the seed facts. With an Apollo key this would proxy Apollo."""
+    """Enrichment record for a domain. A domain already in this workspace serves its seed facts. Otherwise this
+    proxies Apollo.io when APOLLO_API_KEY is set, and returns an empty record when it isn't or Apollo has nothing."""
     row = db.q1("select p.* , c.name as company from prospects p join companies c on c.id = p.company_id where c.domain = %s order by p.id limit 1", (body.domain,))
-    if not row:
+    if row:
+        facts = [{"statement": f["text"], "source_url": f["url"], "confidence": {"High": 0.9, "Medium": 0.7}.get(f["conf"], 0.5)} for f in [*row["facts"], *row["rich"]]]
+        return {"company": {"name": row["company"], "domain": body.domain}, "person": {"name": row["full_name"], "title": row["title"]}, "facts": facts}
+    if not get_settings().apollo_api_key:
         return {"company": None, "person": None, "facts": []}
-    facts = [{"statement": f["text"], "source_url": f["url"], "confidence": {"High": 0.9, "Medium": 0.7}.get(f["conf"], 0.5)} for f in [*row["facts"], *row["rich"]]]
-    return {"company": {"name": row["company"], "domain": body.domain}, "person": {"name": row["full_name"], "title": row["title"]}, "facts": facts}
+    try:
+        rec = apollo.enrich_domain(body.domain, body.person_name)
+    except apollo.ApolloUnavailable:
+        return {"company": None, "person": None, "facts": []}
+    org, person = rec["company"], rec["person"]
+    site = org.website_url or (f"https://{org.domain}" if org.domain else "")
+    facts = []
+    if org.description:
+        facts.append({"statement": org.description, "source_url": site, "confidence": 0.7})
+    if org.staff:
+        facts.append({"statement": f"{org.name} has about {org.staff:,} staff.", "source_url": site, "confidence": 0.9})
+    if person and person.linkedin_url:
+        facts.append({"statement": f"{person.name} is listed as {person.title or 'a contact'} at {org.name} on LinkedIn.", "source_url": person.linkedin_url, "confidence": 0.9})
+    return {
+        "company": {"name": org.name, "domain": org.domain or body.domain} if org.name else None,
+        "person": {"name": person.name, "title": person.title} if person else None,
+        "facts": facts,
+    }
+
+
+@router.get("/tools/linkedin-finder.js")
+def linkedin_finder_download() -> FileResponse:
+    """The real local-runner script, downloadable from the live site. Run it on your own laptop with your
+    own logged-in LinkedIn session; see MANUAL_ACTIONS.md MA-14 for the exact command."""
+    if not SCRIPT_PATH.exists():
+        raise NotFound("linkedin_find_employees.js is not present on this deployment")
+    return FileResponse(SCRIPT_PATH, media_type="application/javascript", filename="linkedin_find_employees.js")
+
+
+class LinkedInImportBody(BaseModel):
+    campaign_id: str
+    company: str
+    domain: str = ""
+    people: list[dict]
+
+
+@router.post("/tools/linkedin-import", dependencies=[Depends(webhook_guard)])
+def linkedin_import(body: LinkedInImportBody, db: Db = Depends(db_dep)) -> dict:
+    """Receives what scripts/linkedin_find_employees.js found on someone's own laptop and creates real
+    prospects from it - see backend/orchestrator/discovery.py:import_linkedin for the company-enrichment
+    and email-lookup steps."""
+    return discovery.import_linkedin(db, body.campaign_id, body.company, body.domain, body.people)

@@ -1,5 +1,5 @@
 /* Boot, polling loop and the field/event handlers that were not extracted with the screens. */
-const POLL_MS=3000;
+const POLL_MS=4000;
 
 function updateClock(){
  if(!S)return;

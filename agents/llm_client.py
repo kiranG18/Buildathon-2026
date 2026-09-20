@@ -115,12 +115,26 @@ def resolve_model(model: str) -> str:
     return (s.llm_model_strong or GROQ_STRONG) if strong else (s.llm_model_fast or GROQ_FAST)
 
 
+_http_client: httpx.Client | None = None
+
+
+def _get_http_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.Client(
+            timeout=TIMEOUT_S,
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=60.0),
+        )
+    return _http_client
+
+
 def _gemini(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     key = get_settings().gemini_api_key
     if not key:
         raise LLMUnavailable("GEMINI_API_KEY is not set")
     try:
-        r = httpx.post(
+        client = _get_http_client()
+        r = client.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             headers={"x-goog-api-key": key},
             json={
@@ -148,7 +162,8 @@ def _openai_compatible(provider: str, key: str, model: str, system: str, user: s
     if model.startswith("openai/gpt-oss"):
         body["reasoning_effort"] = "low"
     try:
-        r = httpx.post(f"{OPENAI_COMPATIBLE[provider]}/chat/completions", headers={"Authorization": f"Bearer {key}"}, json=body, timeout=TIMEOUT_S)
+        client = _get_http_client()
+        r = client.post(f"{OPENAI_COMPATIBLE[provider]}/chat/completions", headers={"Authorization": f"Bearer {key}"}, json=body, timeout=TIMEOUT_S)
         r.raise_for_status()
         j = r.json()
         return RawReply(j["choices"][0]["message"]["content"], j["usage"]["prompt_tokens"], j["usage"]["completion_tokens"])
