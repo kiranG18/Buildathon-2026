@@ -316,5 +316,4 @@ def sync_integrations(db: Db) -> None:
             db.x("update integrations set can_live = true, mode = %s where key = %s", ("live" if follows_config[key] else "sandbox", key))
         else:
             db.x("update integrations set can_live = true where key = %s", (key,))
-    if s.llm_provider == "groq" or (not s.anthropic_api_key and s.groq_api_key):
-        db.x("update integrations set description = 'Groq API. openai/gpt-oss-120b for drafting and planning, openai/gpt-oss-20b for scoring.' where key = 'llm'")
+    db.x("update integrations set name = 'Groq API', description = 'Groq API. openai/gpt-oss-120b for drafting and planning, openai/gpt-oss-20b for scoring.' where key = 'llm'")

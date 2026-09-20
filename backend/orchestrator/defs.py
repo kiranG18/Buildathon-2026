@@ -18,9 +18,9 @@ ROLES = ("System", "Qualifier", "Researcher", "Strategy", "Follow-up", "Writer",
 AGENT_ROLE = {"Researcher": "Researcher", "Qualifier": "Qualifier", "Sequencer": "Strategy", "Writer": "Writer", "Responder": "Responder", "Caller": "Caller"}
 AGENT_META = {
     "Researcher": {"model": "DronaHQ agent, web search + enrichment", "host": "DronaHQ", "cost": 0.012, "dur": 4.1},
-    "Qualifier": {"model": "claude-haiku-4-5", "host": "Direct", "cost": 0.004, "dur": 1.2},
-    "Sequencer": {"model": "claude-sonnet-5", "host": "Direct", "cost": 0.018, "dur": 2.4},
-    "Writer": {"model": "claude-sonnet-5", "host": "Direct", "cost": 0.022, "dur": 3.1},
+    "Qualifier": {"model": "openai/gpt-oss-20b", "host": "Groq", "cost": 0.001, "dur": 0.4},
+    "Sequencer": {"model": "openai/gpt-oss-120b", "host": "Groq", "cost": 0.0015, "dur": 0.9},
+    "Writer": {"model": "openai/gpt-oss-120b", "host": "Groq", "cost": 0.0018, "dur": 1.2},
     "Responder": {"model": "DronaHQ agent, MCP tools", "host": "DronaHQ", "cost": 0.015, "dur": 2.9},
     "Caller": {"model": "DronaHQ Voice agent", "host": "DronaHQ", "cost": 0.11, "dur": 74},
 }

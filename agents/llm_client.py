@@ -108,11 +108,11 @@ def resolve_model(model: str) -> str:
     """The callers name a Claude model by role. Another provider maps the strong and fast roles to its own model ids."""
     s = get_settings()
     strong = model == SONNET
-    if s.llm_provider == "gemini":
+    if s.llm_provider == "gemini" and s.gemini_api_key:
         return (s.llm_model_strong or GEMINI_STRONG) if strong else (s.llm_model_fast or GEMINI_FAST)
-    if s.llm_provider == "groq" or (not s.anthropic_api_key and s.groq_api_key):
-        return (s.llm_model_strong or GROQ_STRONG) if strong else (s.llm_model_fast or GROQ_FAST)
-    return model
+    if s.llm_provider == "anthropic" and s.anthropic_api_key:
+        return model
+    return (s.llm_model_strong or GROQ_STRONG) if strong else (s.llm_model_fast or GROQ_FAST)
 
 
 def _gemini(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
@@ -165,11 +165,11 @@ def _openai_compatible(provider: str, key: str, model: str, system: str, user: s
 
 def _primary(model: str, system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
     p = get_settings().llm_provider
-    if p == "groq":
-        return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
-    if p == "gemini":
+    if p == "gemini" and get_settings().gemini_api_key:
         return _gemini(model, system, user, temperature, max_tokens)
-    return _anthropic(model, system, user, temperature, max_tokens)
+    if p == "anthropic" and get_settings().anthropic_api_key:
+        return _anthropic(model, system, user, temperature, max_tokens)
+    return _openai_compatible("groq", get_settings().groq_api_key, model, system, user, temperature, max_tokens)
 
 
 def _fallback(system: str, user: str, temperature: float, max_tokens: int) -> RawReply:
