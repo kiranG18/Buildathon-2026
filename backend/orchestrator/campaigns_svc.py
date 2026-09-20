@@ -233,6 +233,8 @@ def dry_run(db: Db, campaign_id: str) -> dict:
                     summary = d.comp["body"][:200]
                 elif gc["bad"]:
                     summary = f"{len(gc['bad'])} claims without evidence: {', '.join(x['reason'] for x in gc['bad'][:2])}"
+                elif not d.comp.get("claims"):
+                    summary = "No claims cited in draft"
                 elif d.generic_safe and d.failures:
                     summary = f"Draft failed: {'; '.join(d.failures)}"
                 else:

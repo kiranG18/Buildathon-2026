@@ -135,11 +135,12 @@ def draft(db: Db, e: dict, p: dict, c: dict, kind: str, *, channel: str, version
         comp = _comp_from_draft(res.parsed, channel)
         gc = grounding.check(db, comp, p, c["id"])
         problem = grounding.length_problem(comp, channel, c["words"])
-        if not gc["bad"] and not problem:
+        has_claims = bool(comp.get("claims"))
+        if not gc["bad"] and not problem and has_claims:
             return DraftOut(comp, chunk_ids, regenerated=regenerated, failures=[], model=res.model, tokens_in=tin, tokens_out=tout, cost=cost,
                             latency=res.latency, prompt_version=b.agent_version)
-        failures = [f"{x['reason']}: {x['t'][:60]}" for x in gc["bad"]] + ([problem] if problem else [])
-        hint = "\n\nYour last draft failed checks: " + "; ".join(failures) + ". Regenerate without those problems."
+        failures = [f"{x['reason']}: {x['t'][:60]}" for x in gc["bad"]] + ([problem] if problem else []) + ([] if has_claims else ["no_claims: draft must cite at least one claim in claims[]"])
+        hint = "\n\nYour last draft failed checks: " + "; ".join(failures) + ". Regenerate with valid claims and without those problems."
         regenerated = True
     comp = template(facts_override=[])
     comp["claims"] = [x for x in comp["claims"] if x["src"].startswith("K")]
