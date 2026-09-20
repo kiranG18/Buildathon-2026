@@ -214,19 +214,17 @@ async function run() {
     const results = await page.evaluate((wantCompany, wantLimit) => {
       // LinkedIn's search markup changes and uses generated class names, so read the profile links themselves instead of card classes.
       const skip = /^(view|connect|message|follow|status is|premium|try)/i;
-      const noise = /^([•·]|1st|2nd|3rd|connect$|message$|follow$|mutual|.*mutual connection)/i;
+      const noise = /^(•|·|1st|2nd|3rd|connect$|message$|follow$|mutual|.*mutual connection)/i;
       const seen = new Set();
       const out = [];
       for (const a of document.querySelectorAll('main a[href*="/in/"]')) {
         const href = (a.getAttribute('href') || '').split('?')[0];
         const id = (href.match(/\/in\/([^/]+)/) || [])[1];
         if (!id || seen.has(id)) continue;
-        const name = ((a.innerText || '').split('
-')[0] || '').replace(/\s+/g, ' ').trim();
+        const name = ((a.innerText || '').split('\n')[0] || '').replace(/\s+/g, ' ').trim();
         if (!name || skip.test(name)) continue;
         const box = a.closest('li') || a.closest('div[role="listitem"]') || (a.parentElement && a.parentElement.parentElement);
-        const lines = (box ? box.innerText : '').split('
-').map(x => x.trim()).filter(Boolean);
+        const lines = (box ? box.innerText : '').split('\n').map(x => x.trim()).filter(Boolean);
         const at = lines.findIndex(l => l === name || l.startsWith(name));
         const title = lines.slice(at + 1).find(l => l.length > 3 && !noise.test(l)) || '';
         seen.add(id);
