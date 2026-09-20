@@ -133,7 +133,10 @@ def evaluate(db: Db, e: dict, ch: str, *, ack: bool = False, reply: bool = False
         "select 1 as x from messages where enrollment_id = %s and direction = 'out' and not is_reply and status = 'sent' limit 1", (e["id"],)
     )
     appr = c["appr"]
-    assisted = ch == "linkedin" and (db.q1("select mode from integrations where key = 'linkedin'") or {}).get("mode") == "live"
+    from backend.channels.base import REGISTRY
+    adapter = REGISTRY.get("linkedin")
+    is_automated = type(adapter).__name__ == "LinkedInBrowserAdapter" and not getattr(adapter, "is_blocked", False)
+    assisted = ch == "linkedin" and not is_automated and (db.q1("select mode from integrations where key = 'linkedin'") or {}).get("mode") == "live"
     need = not approved and (
         assisted
         or bool(appr.get("all"))

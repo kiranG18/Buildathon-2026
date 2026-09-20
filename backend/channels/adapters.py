@@ -7,6 +7,7 @@ so a channel without credentials sends nothing and its messages wear the SANDBOX
 import base64
 import hashlib
 import hmac
+import logging
 import os
 from pathlib import Path
 import smtplib
@@ -225,25 +226,45 @@ def twilio_signature(auth_token: str, url: str, params: dict[str, str]) -> str:
     return base64.b64encode(hmac.new(auth_token.encode(), data.encode(), hashlib.sha1).digest()).decode()
 
 
+logger = logging.getLogger("cadence.channels.linkedin")
+
+
 class LinkedInBrowserAdapter:
     name = "linkedin"
 
-    def __init__(self, li_at: str = ""):
+    def __init__(self, li_at: str = "", fallback: LinkedInAssisted | None = None):
         self.li_at = li_at
+        self.fallback = fallback or LinkedInAssisted()
+        self.is_blocked: bool = False
 
     def capabilities(self) -> Capabilities:
         return Capabilities(max_chars=300, needs_consent=False, supports_threading=False)
 
     def send(self, msg: OutboundMessage) -> SendResult:
         _maybe_fail("linkedin")
+        # If account is restricted or in cooldown, route directly to rep-assisted backup
+        if self.is_blocked:
+            logger.info("LinkedIn automation is in backup mode; delegating send to rep-assisted queue.")
+            return self.fallback.send(msg)
+
         root = Path(__file__).resolve().parents[2]
         cmd = ["node", "scripts/linkedin_bot.js", "--url", msg.to, "--note", msg.body]
         if self.li_at:
             cmd.extend(["--cookie", self.li_at])
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=str(root))
-        if res.returncode != 0:
-            raise ChannelError(f"LinkedIn automation error: {res.stderr or res.stdout}", code="linkedin_send_failed")
-        return SendResult(external_id=f"li-{uuid.uuid4().hex[:12]}")
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=str(root))
+            if res.returncode == 0:
+                return SendResult(external_id=f"li-{uuid.uuid4().hex[:12]}")
+            err_msg = (res.stderr or res.stdout or "").strip()
+            # If account is blocked, challenged with captcha/checkpoint, or session expired, trip circuit breaker
+            if any(k in err_msg for k in ("AUTH_REQUIRED", "checkpoint", "authwall", "CHALLENGE")):
+                self.is_blocked = True
+                logger.warning("LinkedIn account restriction or authwall detected! Tripping circuit breaker to rep-assisted backup.")
+            logger.warning("Automated LinkedIn browser send failed (%s). Falling back to backup rep-assisted queue.", err_msg[:250])
+            return self.fallback.send(msg)
+        except Exception as exc:
+            logger.warning("Automated LinkedIn browser runner exception (%s). Falling back to backup rep-assisted queue.", exc)
+            return self.fallback.send(msg)
 
     def poll_inbound(self, since) -> list[dict]:
         return []
@@ -267,8 +288,9 @@ def register_configured() -> list[str]:
     if s.twilio_account_sid and s.twilio_auth_token and s.twilio_from_number:
         register(TwilioAdapter(s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number))
     li_at = os.getenv("LINKEDIN_LI_AT", "")
-    if s.channel_mode_linkedin == "live" and li_at:
-        register(LinkedInBrowserAdapter(li_at))
+    # Automated browser is PRIMARY when cookie is configured or mode is live; rep-assisted is fallback backup
+    if li_at or s.channel_mode_linkedin == "live":
+        register(LinkedInBrowserAdapter(li_at, fallback=LinkedInAssisted()))
     else:
         register(LinkedInAssisted())
     return sorted(REGISTRY)
