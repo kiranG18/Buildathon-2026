@@ -1,6 +1,7 @@
 import secrets
 from typing import Literal
 
+import psycopg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
@@ -135,6 +136,32 @@ def offboard(rid: str, body: ReassignBody | None = None, user: User = Depends(mg
         _move(db, rid, to)
     act(db, None, "agent", f"{user['name']} offboarded {u['name']}" + (f", items moved to {get_user(db, to)['name']}" if to else ", items left unassigned"), agent="Manager")
     return {"affected": aff, "reassigned_to": to}
+
+
+@router.delete("/reps/{rid}")
+def delete_rep(rid: str, replacement_rep_id: str | None = None, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    """Remove a rep. A rep who still holds campaigns, open prospects or open escalations needs a replacement first.
+    A rep that past records point to is kept as an offboarded user so the history still shows who handled it."""
+    u = get_user(db, rid)
+    if not u or u["role"] != "Rep":
+        raise NotFound("Rep not found")
+    aff = _affected(db, rid)
+    if (aff["campaigns"] or aff["open_escalations"] or aff["enrollments"]) and not replacement_rep_id:
+        raise StateConflict("This rep still holds work. Pick a replacement rep to take it over.", code="rep_has_work", extra={"affected": aff})
+    if replacement_rep_id:
+        if replacement_rep_id == rid:
+            raise CadenceError("Pick a different rep as the replacement", code="validation_error")
+        _move(db, rid, replacement_rep_id)
+    db.x("delete from rep_assignments where rep_id = %s", (rid,))
+    try:
+        with db.conn.transaction():
+            db.x("delete from users where id = %s", (rid,))
+        removed = True
+    except psycopg.errors.ForeignKeyViolation:
+        db.x("update users set active = false where id = %s", (rid,))
+        removed = False
+    act(db, None, "agent", f"{user['name']} deleted rep {u['name']}" + ("" if removed else ", kept as offboarded because past records refer to them"), agent="Manager")
+    return {"deleted": removed, "kept_as_offboarded": not removed, "reassigned_to": replacement_rep_id}
 
 
 @router.post("/reps/{rid}/reassign")
