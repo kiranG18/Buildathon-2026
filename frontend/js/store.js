@@ -10,7 +10,7 @@ const enrOf=pid=>S.enr.filter(e=>e.pid===pid);
 const msgsOf=e=>S.msgs.filter(m=>m.eid===e.id);
 const hash=s=>{let h=7;for(const ch of s)h=(h*31+ch.charCodeAt(0))|0;return Math.abs(h)};
 
-function chanMode(ch){const m={email:S.integ.gmail.mode,linkedin:'sandbox',sms:S.integ.twilio.mode,voice:S.integ.voice.mode};return m[ch]||'sandbox'}
+function chanMode(ch){const m={email:S.integ.gmail.mode,linkedin:S.integ.linkedin.mode,sms:S.integ.twilio.mode,voice:S.integ.voice.mode};return m[ch]||'sandbox'}
 const meU=()=>S.user;
 function E0(pid,cid){return S.enr.find(x=>x.pid===pid&&x.cid===cid)}
 function jobState(j){

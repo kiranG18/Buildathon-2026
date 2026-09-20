@@ -35,7 +35,7 @@ flowchart LR
   D -->|"MCP: 7 tools"| API
   A --> R["RAG<br/>hybrid retrieval"]
   R --> DB
-  G --> C["Channels<br/>Gmail, Twilio, LinkedIn sandbox, voice"]
+  G --> C["Channels<br/>Gmail, Twilio, LinkedIn (rep-assisted), voice"]
   C -->|"replies, webhooks"| API
 ```
 
@@ -97,7 +97,7 @@ Everything runs offline by default (`LLM_MODE=fake`): deterministic agents, a lo
 | --- | --- | --- | --- |
 | Email | Gmail API from a sandbox account, threaded by Message-ID, replies polled every 30 seconds (SMTP fallback) | Writes to the database only | `LIVE` or `SANDBOX` |
 | SMS | Twilio trial to verified team phones, inbound webhook with signature check | Sandbox handset | `LIVE` or `SANDBOX` |
-| LinkedIn | none: automating a real account breaks LinkedIn's terms | Mock inbox, simulated acceptance, replies from the reply simulator | `SANDBOX` |
+| LinkedIn | Rep-assisted. LinkedIn has no messaging API and automating an account breaks its terms, so the agents write and queue the note, a person sends it from their own account and confirms on the approval card. A reply is pasted back in | Sandbox: mock inbox, simulated acceptance, reply simulator | `LIVE` after the rep confirms, otherwise `SANDBOX` |
 | Voice | DronaHQ Voice agent, pre and post webhooks | Scripted call outcome through the same recording path | `LIVE` or `SANDBOX` |
 
 A channel without credentials sends nothing and its messages wear the `SANDBOX` badge. The reply simulator posts through the same `ingest_reply` function that Gmail polling and the Twilio webhook call.
@@ -146,7 +146,7 @@ docs/           architecture, API, runbook, report, deck, demo script, test log
 
 ## Known limitations
 
-- LinkedIn is a sandbox by design. Live LinkedIn automation is out of scope.
+- LinkedIn is rep-assisted by design. A person sends each note. Sending by automation is out of scope because it breaks LinkedIn's terms.
 - With `LLM_MODE=fake` the agents are deterministic and their token and cost numbers are list-price estimates per agent, not measurements. Live mode records real usage.
 - Golden-set scores come from 15 seeded cases per agent (five per campaign for the Qualifier and Writer) and, in fake mode, from rule-based agents. They are not production traffic.
 - Prospect discovery reads a fixed demo lead source and CSV import. There is no live scraping.

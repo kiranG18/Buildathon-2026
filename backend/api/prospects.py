@@ -122,3 +122,14 @@ def human_reply(eid: str, body: ReplyBody, user: User = Depends(current_user), d
         raise Forbidden("Not your thread")
     m = replies.human_send(db, e, user, body.text.strip())
     return {"message_id": m["id"]}
+
+
+@router.post("/enrollments/{eid}/linkedin-reply")
+def linkedin_reply(eid: str, body: ReplyBody, user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
+    """A rep pastes a reply they received on LinkedIn. It takes the same path as a Gmail or SMS reply."""
+    e = enrollment(db, eid)
+    vis = _visible_campaigns(db, user)
+    if vis is not None and e["campaign_id"] not in vis:
+        raise Forbidden("Not your thread")
+    m = replies.ingest_reply(db, e, "linkedin", body.text.strip())
+    return {"message_id": m["id"], "classification": m["classification"], "sub": m["sub"], "rule": m["rule"]}

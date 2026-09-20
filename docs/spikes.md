@@ -139,3 +139,12 @@ Findings:
 | Tests | `test_a11_dronahq_post_call_payload_is_translated`, `test_a11_dronahq_payload_matches_by_dialled_number_and_defaults_the_disposition` |
 | Not yet verified | The outbound call API and whether the trial number can dial India. A real call has not been placed |
 
+## LinkedIn, rep-assisted (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Decision | LinkedIn has no API for messaging prospects, and automating an account (browser scripts or third-party senders) breaks its terms and risks the account. Live mode is therefore rep-assisted |
+| Flow | With the LinkedIn integration set to live, the gate always asks for approval (check 10). The card shows Open profile, Copy note and "I sent it on LinkedIn". Confirming records the touch as `LIVE`. A reply is pasted into Conversations and takes the same `ingest_reply` path as email and SMS |
+| Tests | `test_live_linkedin_always_needs_a_person_to_send`, `test_linkedin_is_live_only_as_rep_assisted_and_a_pasted_reply_is_classified` |
+| Not verified | A real note sent from a real account. Run one by hand before the demo if you want it on video |
+

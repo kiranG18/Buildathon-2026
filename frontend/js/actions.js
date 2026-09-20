@@ -148,6 +148,14 @@ ACT.simReply=t=>{
  $('#srgo').onclick=()=>{const body=$('#srt').value.trim();if(!body)return;const channel=$('#src').value;closeModal();
   run(()=>api.post('/demo/simulate-reply',{enrollment_id:e.id,channel,body}),{ok:r=>`Classified as ${r.classification==='escalate'?ESC[r.sub]:String(r.classification).replace('_',' ')} by ${r.rule}. ${r.classification==='escalate'?'An escalation is open.':'The Responder answers next.'}`})};
 };
+ACT.liOpen=t=>{window.open('https://'+t.dataset.u.replace(/^https?:\/\//,''),'_blank','noopener')};
+ACT.liCopy=async t=>{const et=$('#editText'),ap=S.approvals.find(v=>v.id===idOf(t)),v=et&&!$('#draftEdit').hidden?et.value:S.msgs.find(z=>z.id===ap.msgId).body;
+ try{await navigator.clipboard.writeText(v.trim());toast('Note copied.')}catch(e){toast('Copy failed. Select the note and copy it by hand.',{bad:true})}};
+ACT.liPaste=t=>{const e=E(idOf(t));openModal(`<h2>Paste a LinkedIn reply from ${esc(P(e.pid).first)}</h2><p class="muted" style="margin:6px 0 14px">Copy the reply from LinkedIn. It goes through the same inbound function as email and SMS replies, so the real classification and Guardian rules run.</p>
+ <div class="field"><label>Reply text</label><textarea class="txt" id="lir" rows="4"></textarea></div>
+ <div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="ligo">Record reply</button></div>`);
+ $('#ligo').onclick=()=>{const text=$('#lir').value.trim();if(!text)return;closeModal();
+  run(()=>api.post('/enrollments/'+e.id+'/linkedin-reply',{text}),{ok:r=>`Classified as ${r.classification==='escalate'?ESC[r.sub]:String(r.classification).replace('_',' ')} by ${r.rule}.`})}};
 ACT.humanSend=t=>{const txt=$('#humanText').value.trim();if(!txt)return;run(()=>api.post('/enrollments/'+idOf(t)+'/reply',{text:txt}),{ok:'Reply sent as '+S.user.name+'.',after:()=>{UI.sel.take=null}})};
 
 /* ---------- prompts ---------- */

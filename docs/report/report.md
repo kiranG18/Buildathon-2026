@@ -26,7 +26,7 @@ flowchart LR
   W --> A["Direct agents<br/>Qualifier, Sequencer, Writer"]
   W -->|"webhook"| D["DronaHQ agents<br/>Researcher, Responder, Caller"]
   D -->|"MCP: seven tools"| API
-  G --> C["Channels<br/>Gmail, Twilio, LinkedIn sandbox, voice"]
+  G --> C["Channels<br/>Gmail, Twilio, LinkedIn (rep-assisted), voice"]
   C -->|"replies"| API
 ```
 
@@ -94,7 +94,7 @@ Python 3.12, FastAPI, Pydantic v2, psycopg 3, Postgres 16 with pgvector and full
 | Apps Studio app | Working | Native screens tested in a browser against the live API. Not public, see limitations |
 | DronaHQ Researcher and Responder agents | In progress | Instruction shells, schemas and steps are in `dronahq/`. They run on the direct provider until the hosted agents are switched on |
 | Model providers | Working | Anthropic, Gemini and Groq behind one client, with retries, a repair pass and a fallback. Tested with scripted replies. Real-model results are pending a key |
-| LinkedIn | Sandbox by design | Terms of service |
+| LinkedIn | Rep-assisted in live mode: agents write and queue the note, a person sends it and confirms, and a pasted reply is classified like any other. Sandbox otherwise | LinkedIn has no messaging API and automating an account breaks its terms |
 | Prompt-change approval workflow, real calendar booking | Skipped | Stretch items |
 
 ## 7. Known limitations and trade-offs

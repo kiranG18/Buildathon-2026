@@ -133,15 +133,17 @@ def evaluate(db: Db, e: dict, ch: str, *, ack: bool = False, reply: bool = False
         "select 1 as x from messages where enrollment_id = %s and direction = 'out' and not is_reply and status = 'sent' limit 1", (e["id"],)
     )
     appr = c["appr"]
+    assisted = ch == "linkedin" and (db.q1("select mode from integrations where key = 'linkedin'") or {}).get("mode") == "live"
     need = not approved and (
-        bool(appr.get("all"))
+        assisted
+        or bool(appr.get("all"))
         or (ch == "voice" and appr.get("voice"))
         or (appr.get("first") and first_touch and not reply)
         or (reply and appr.get("reply") and pricing)
     )
     if need and state["dec"] == "allow":
         state["dec"], state["reason"] = "needs_approval", "approval_rule"
-    cks.append({"n": 10, "code": "approval_rule", "ok": not need, "note": "Campaign rule requires manager approval" if need else "No approval needed"})
+    cks.append({"n": 10, "code": "approval_rule", "ok": not need, "note": ("A person sends LinkedIn notes from their own account" if assisted else "Campaign rule requires manager approval") if need else "No approval needed"})
     return {"dec": state["dec"], "reason": state["reason"], "until": state["until"], "cks": cks}
 
 

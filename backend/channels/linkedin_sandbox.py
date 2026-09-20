@@ -1,4 +1,4 @@
-"""LinkedIn runs as a labelled sandbox. Automating a real account breaks LinkedIn's terms, so there is no live adapter.
+"""LinkedIn sandbox mode. Automating a real account breaks LinkedIn's terms, so live mode is rep-assisted (see `LinkedInAssisted`).
 The sandbox simulates connection acceptance 24 hours after a connect note, and replies arrive through the reply simulator."""
 
 from datetime import timedelta
@@ -12,7 +12,7 @@ def simulate_acceptance(db: Db) -> int:
     cutoff = clock.now() - timedelta(hours=24)
     rows = db.q(
         """select distinct m.enrollment_id from messages m join campaigns c on c.id = m.campaign_id
-           where c.status = 'live' and m.channel = 'linkedin' and m.direction = 'out' and m.status = 'sent' and m.kind = 'connect' and m.created_at < %s
+           where c.status = 'live' and m.channel = 'linkedin' and m.direction = 'out' and m.status = 'sent' and m.kind = 'connect' and m.mode = 'sandbox' and m.created_at < %s
            and not exists (select 1 from activity a where a.enrollment_id = m.enrollment_id and a.kind = 'linkedin_accept')""",
         (cutoff,),
     )

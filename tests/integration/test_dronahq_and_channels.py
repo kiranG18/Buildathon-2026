@@ -241,7 +241,8 @@ def test_integrations_show_only_what_is_configured(seeded, monkeypatch):
     with scratch() as db:
         adapters.sync_integrations(db)
         rows = {r["key"]: r for r in db.q("select * from integrations")}
-        assert all(r["mode"] == "sandbox" and not r["can_live"] and r["status"] == "ok" and r["err"] is None for r in rows.values())
+        assert all(r["mode"] == "sandbox" and not r["can_live"] and r["status"] == "ok" and r["err"] is None for k, r in rows.items() if k != "linkedin")
+        assert rows["linkedin"]["can_live"] and rows["linkedin"]["mode"] == "sandbox"
 
         monkeypatch.setattr(s, "gmail_client_id", "id")
         monkeypatch.setattr(s, "gmail_client_secret", "secret")
@@ -432,6 +433,30 @@ def test_source_pages_and_the_enrichment_tool(seeded, client):
     assert client.post("/tools/enrich", json={"domain": "ledgerline.com"}).status_code == 401
     r = client.post("/tools/enrich", json={"domain": "ledgerline.com"}, headers=SECRET).json()
     assert r["company"]["name"] == "Ledgerline" and any("platform-engineer" in f["statement"] for f in r["facts"])
+
+
+def test_linkedin_is_live_only_as_rep_assisted_and_a_pasted_reply_is_classified(seeded, client, auth):
+    from backend.channels.base import CH_KEY
+    from backend.orchestrator.repo import channel_mode
+
+    adapters.register_configured()
+    try:
+        assert REGISTRY["linkedin"].send(OutboundMessage("M-1", "linkedin", "linkedin.com/in/x", None, "hi")).external_id is None
+        assert CH_KEY["linkedin"] == "linkedin"
+        with scratch() as db:
+            assert channel_mode(db, "linkedin") == "sandbox"
+            db.x("update integrations set mode = 'live' where key = 'linkedin'")
+            assert channel_mode(db, "linkedin") == "live"
+        e = enrollment_of("dana-whitfield", "C1")
+        r = client.post(f"/enrollments/{e['id']}/linkedin-reply", json={"text": "Interested, tell me more."})
+        assert r.status_code == 401
+        r = client.post(f"/enrollments/{e['id']}/linkedin-reply", json={"text": "Interested, tell me more."}, headers=auth())
+        assert r.status_code == 200 and r.json()["classification"] == "positive"
+        with tx() as db:
+            m = db.q1("select channel, direction from messages where id = %s", (r.json()["message_id"],))
+        assert (m["channel"], m["direction"]) == ("linkedin", "in")
+    finally:
+        REGISTRY.clear()
 
 
 def test_linkedin_sandbox_accepts_a_connection_after_a_day(seeded):

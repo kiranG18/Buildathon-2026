@@ -1,4 +1,4 @@
-"""Live channel adapters: Gmail API (SMTP fallback) for email and Twilio for SMS. LinkedIn stays a labelled sandbox.
+"""Live channel adapters: Gmail API (SMTP fallback) for email and Twilio for SMS. LinkedIn is rep-assisted: agents write and queue the note, a person sends it from their own account.
 
 Every adapter refuses recipients outside ALLOWED_RECIPIENTS, in production too. Adapters register themselves only when their credentials exist,
 so a channel without credentials sends nothing and its messages wear the SANDBOX badge.
@@ -201,6 +201,22 @@ class TwilioAdapter:
             raise ChannelError(f"Twilio auth failed: {r.status_code}", code="twilio_auth")
 
 
+class LinkedInAssisted:
+    """LinkedIn has no API for messaging prospects and automating an account breaks its terms. The rep sends the note by hand
+    and confirms it on the approval card, so this adapter sends nothing and only makes the channel available in live mode."""
+
+    name = "linkedin"
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(300, False, False)
+
+    def send(self, msg: OutboundMessage) -> SendResult:
+        return SendResult()
+
+    def poll_inbound(self, since) -> list[dict]:
+        return []
+
+
 def twilio_signature(auth_token: str, url: str, params: dict[str, str]) -> str:
     data = url + "".join(k + params[k] for k in sorted(params))
     return base64.b64encode(hmac.new(auth_token.encode(), data.encode(), hashlib.sha1).digest()).decode()
@@ -216,6 +232,7 @@ def register_configured() -> list[str]:
         register(SmtpAdapter(s.smtp_host, s.smtp_user, s.smtp_app_password))
     if s.twilio_account_sid and s.twilio_auth_token and s.twilio_from_number:
         register(TwilioAdapter(s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number))
+    register(LinkedInAssisted())
     return sorted(REGISTRY)
 
 
@@ -229,7 +246,7 @@ def sync_integrations(db: Db) -> None:
         "agents": bool(s.dronahq_researcher_webhook_url or s.dronahq_responder_webhook_url),
         "embed": bool(s.embeddings_api_key),
         "llm": bool({"anthropic": s.anthropic_api_key, "gemini": s.gemini_api_key, "groq": s.groq_api_key}.get(s.llm_provider)),
-        "linkedin": False,
+        "linkedin": True,
     }
     follows_config = {"agents": can_live["agents"], "embed": can_live["embed"], "llm": can_live["llm"] and s.llm_mode == "live"}
     for key, ok in can_live.items():

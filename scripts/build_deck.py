@@ -111,7 +111,7 @@ def main() -> None:
     box(s, 5.8, 2.0, 2.2, 0.9, "Postgres\npgvector + full-text")
     box(s, 3.2, 3.6, 2.0, 0.9, "Worker\nSKIP LOCKED queue")
     box(s, 5.8, 3.6, 2.2, 0.9, "Guardian\ngate, conflicts, grounding", fill=CREAM)
-    box(s, 8.6, 3.6, 2.2, 0.9, "Channels\nGmail, Twilio, LinkedIn sandbox, voice")
+    box(s, 8.6, 3.6, 2.2, 0.9, "Channels\nGmail, Twilio, LinkedIn (rep-assisted), voice")
     box(s, 3.2, 5.2, 2.0, 0.9, "Direct agents\nQualifier, Sequencer, Writer")
     box(s, 5.8, 5.2, 2.2, 0.9, "RAG\nhybrid retrieval, citations")
     box(s, 8.6, 5.2, 2.2, 0.9, "DronaHQ agents\nResearcher, Responder, Caller")
@@ -165,7 +165,7 @@ def main() -> None:
     s = slide(prs, "What works, and what is honest", "Sandbox is an approved state and the badge tells the truth")
     bullets(s, ["Working live: campaigns, lifecycle, gate, conflicts, prompts and replay, RAG, evals, approvals, reps, analytics, MCP, and Gmail end to end (send, reply, classify, book).",
                 "Partial: SMS (Twilio connected, first real text untested), voice (sandbox), and the hosted DronaHQ agents until they are switched on. Each falls back to sandbox or the direct provider.",
-                "LinkedIn is a sandbox by design. Golden sets are small and the live-model scores depend on the provider's rate limit.", "Full list: docs/report/report.md"], size=18)
+                "LinkedIn is rep-assisted by design: a person sends each note. Golden sets are small and the live-model scores depend on the provider's rate limit.", "Full list: docs/report/report.md"], size=18)
 
     s = slide(prs, "Try it yourself", "Judge card")
     bullets(s, ["1. Sign in with a demo chip. Create a campaign from the C1 template. Try Activate and read the checklist.", "2. Open Prompts on C3, edit the tone, save v3, and compare it with v2.", "3. Pause a campaign and watch Agent Activity.", "Live: buildathon-2026-production.up.railway.app", "Repo: github.com/kiranG18/Buildathon-2026"], size=20)
