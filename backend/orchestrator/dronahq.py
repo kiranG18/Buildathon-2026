@@ -5,6 +5,7 @@ reruns the step on the direct provider (activity: provider_fallback). Responder:
 Voice: a live call posts to the Voice agent, and the post-call webhook (POST /voice/outcome) records the result.
 """
 
+import json
 import time
 from datetime import timedelta
 
@@ -14,13 +15,15 @@ from pydantic import ValidationError
 from agents import researcher, runtime
 from agents.models import ResearchResult, ResponderResult
 from agents.responder import Reading
+from agents.util import strip_fences
 from backend.core import clock
 from backend.core.config import get_settings
 from backend.core.db import Db
 from backend.core.logging import log
 from backend.orchestrator.repo import act
 
-WAIT_SECONDS = 90.0
+POST_TIMEOUT_S = 110.0
+WAIT_SECONDS = 40.0
 POLL_SECONDS = 1.0
 _transport: httpx.BaseTransport | None = None
 
@@ -37,7 +40,27 @@ def enabled(agent: str) -> bool:
     return provider == "dronahq" and bool(url)
 
 
-def _post(url: str, payload: dict, timeout: float = 30.0) -> httpx.Response:
+def agent_result(body) -> dict | None:
+    """The agent's result: a top-level output or result, or the last JSON object in the text steps of a Standard reply."""
+    if not isinstance(body, dict):
+        return None
+    for key in ("output", "result"):
+        if isinstance(body.get(key), dict):
+            return body[key]
+    steps = body.get("response")
+    if isinstance(steps, list):
+        for item in reversed(steps):
+            if isinstance(item, dict) and item.get("type") == "text":
+                try:
+                    obj = json.loads(strip_fences(item.get("text", "")))
+                except ValueError:
+                    continue
+                if isinstance(obj, dict):
+                    return obj
+    return body
+
+
+def _post(url: str, payload: dict, timeout: float = POST_TIMEOUT_S) -> httpx.Response:
     headers = {"api-key": get_settings().dronahq_api_key} if get_settings().dronahq_api_key else {}
     with httpx.Client(transport=_transport, timeout=timeout) as client:
         return client.post(url, json=payload, headers=headers)
@@ -64,28 +87,36 @@ def research(db: Db, e: dict, p: dict, c: dict) -> researcher.Research:
                     "facts": [{"id": f["id"], "statement": f["text"], "source_url": f["url"]} for f in p["facts"]], "checklist": []},
         "output_schema": ResearchResult.model_json_schema(),
     }
-    started = clock.now()
+    started = db.q1("select clock_timestamp() as t")["t"]
+    parsed = None
     try:
         r = _post(get_settings().dronahq_researcher_webhook_url, payload)
         r.raise_for_status()
+        try:
+            result = agent_result(r.json())
+            parsed = ResearchResult.model_validate(result) if result else None
+        except (ValueError, ValidationError):
+            parsed = None
+    except httpx.TimeoutException:
+        log().warning("dronahq researcher slow", extra={"event": "webhook_slow"})
     except httpx.HTTPError as exc:
         return _fallback(db, e, p, type(exc).__name__)
-    try:
-        body = r.json()
-        result = body.get("output", body.get("result", body)) if isinstance(body, dict) else None
-        parsed = ResearchResult.model_validate(result) if result else None
-    except (ValueError, ValidationError):
-        parsed = None
+    def saved_through_mcp():
+        return db.q1("select facts_saved from research_callbacks where enrollment_id = %s and saved_at >= %s order by saved_at desc limit 1", (e["id"], started))
+
+    row = saved_through_mcp()
+    if row:
+        return researcher.Research([], parsed.gaps if parsed else [], "dronahq", f" DronaHQ agent saved {row['facts_saved']} sourced facts through MCP.")
     if parsed is not None and parsed.facts:
         saved = tools.save_research_in(db, e["id"], parsed.model_dump())
         return researcher.Research([], parsed.gaps, "dronahq", f" DronaHQ agent returned {saved['saved_facts']} sourced facts.")
     deadline = time.monotonic() + WAIT_SECONDS
     while time.monotonic() < deadline:
-        row = db.q1("select facts_saved from research_callbacks where enrollment_id = %s and saved_at >= %s order by saved_at desc limit 1", (e["id"], started))
+        row = saved_through_mcp()
         if row:
             return researcher.Research([], [], "dronahq", f" DronaHQ agent saved {row['facts_saved']} sourced facts through MCP.")
         time.sleep(POLL_SECONDS)
-    return _fallback(db, e, p, "no callback in 90 seconds")
+    return _fallback(db, e, p, f"no callback in {int(WAIT_SECONDS)} seconds")
 
 
 def respond(db: Db, e: dict, p: dict, c: dict, text: str) -> Reading | None:
@@ -97,8 +128,7 @@ def respond(db: Db, e: dict, p: dict, c: dict, text: str) -> Reading | None:
     try:
         r = _post(get_settings().dronahq_responder_webhook_url, payload)
         r.raise_for_status()
-        body = r.json()
-        parsed = ResponderResult.model_validate(body.get("output", body) if isinstance(body, dict) else {})
+        parsed = ResponderResult.model_validate(agent_result(r.json()) or {})
     except (httpx.HTTPError, ValueError, ValidationError) as exc:
         act(db, e, "gate", f"DronaHQ Responder unavailable ({type(exc).__name__}). The reply used the direct provider", agent="Guardian", reason_code="provider_fallback")
         return None
