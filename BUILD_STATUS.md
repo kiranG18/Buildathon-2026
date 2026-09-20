@@ -1,7 +1,7 @@
 # Build status
 
-Last updated: Sunday 20 September 2026, morning
-Current phase: P8 hardening and P9 documents. Live at https://buildathon-2026-production.up.railway.app (Railway, Singapore; Supabase Postgres, Mumbai).
+Last updated: Sunday 20 September 2026, 9 PM (deploy freeze)
+Current phase: submission. Live at https://buildathon-2026-production.up.railway.app (Railway, Singapore; Supabase Postgres, Mumbai). The workspace is empty and every campaign is archived.
 Deadline: Sunday 20 September 2026, 11:59 PM IST. Feature freeze 6 PM, deploy freeze 9 PM, submit by 11 PM.
 
 ## Phases
@@ -13,11 +13,11 @@ Deadline: Sunday 20 September 2026, 11:59 PM IST. Feature freeze 6 PM, deploy fr
 | P2 | Worker, gate, conflicts, pause, prompts, lifecycle, reps, `/state` | done | `test_pause_isolation` and the seven conflict cases pass |
 | P3 | LLMClient, schemas, RAG, agents, grounding, evals | done | Three providers (Anthropic, Gemini, Groq) behind one client. Real-model golden runs recorded in `docs/spikes.md` once complete |
 | P4 | Frontend wiring and prototype conformance | done | Every route renders from the live API, 0 console errors |
-| P5 | Email live, SMS, LinkedIn sandbox, voice adapter | email live and proven, SMS partial | A discovered prospect got a real email, a reply was matched, classified and answered. SMS: Twilio connected, first real text rejected (400) |
-| P6 | MCP server, DronaHQ agents, Apps Studio screens | done except the optional Voice agent | Native Apps Studio app (pluginId 77710) published. The hosted Researcher and Responder run in production and are traced end to end in `docs/spikes.md` |
+| P5 | Email live, SMS, LinkedIn, voice | email live and proven; LinkedIn rep-assisted; SMS and voice sandbox | A discovered prospect got a real email, a reply was matched, classified and answered. Twilio rejects free-text SMS to India (572006). Voice needs an outbound number in DronaHQ |
+| P6 | MCP server, DronaHQ agents, Apps Studio screens | done except live voice calls | Native app 77710 published. The hosted Researcher and Responder run in production and are traced in `docs/spikes.md` |
 | P7 | Replay, replanning, analytics, golden-set scores | done | v1 and v2 show different measured scores |
-| P8 | Hardening, failure injection, security, full test matrix | done | 99 tests, CORS locked to dronahq.com origins, row level security on every table |
-| P9 | README, report, deck, demo script, submission | mostly done | Report and deck refreshed. Backup video and the submission form remain |
+| P8 | Hardening, failure injection, security, full test matrix | done | Full suite green in CI, CORS locked to dronahq.com origins, row level security on every table |
+| P9 | README, report, deck, demo script, submission | done except the portal form | Report, deck and README refreshed. The submission form and the DronaHQ post remain |
 
 ## Requirement tracker
 
@@ -38,20 +38,19 @@ Deadline: Sunday 20 September 2026, 11:59 PM IST. Feature freeze 6 PM, deploy fr
 | M13 per-campaign RAG | done | `test_r1_*`, `test_r2_*` |
 | M14 structured output, tools, guardrails, escalation, evals | done | `agents/models.py`, MCP tools, `policy/grounding.py`, `evals/` |
 | M15 cost per prospect, per qualified lead, per conversation | done | `test_analytics_numbers_equal_database_counts`. Costs are measured only in live model mode |
-| M16 DronaHQ in the core with engineer-written code | done except optional Voice | Native Apps Studio app, hosted Researcher (saves facts through `save_research`) and hosted Responder (submits decisions through `set_classification`), both in production with fallback to the direct provider. Voice agent not built |
+| M16 DronaHQ in the core with engineer-written code | done except live voice calls | Native Apps Studio app, hosted Researcher (saves facts through `save_research`) and hosted Responder (submits decisions through `set_classification`), both in production with fallback to the direct provider. |
 | M17 shared repo, commits from all authors, clean | partial | One author in the history. CI secret scan runs on GitHub |
 | M18 malformed output, API failure, empty states | done | `tests/failure/` including 429 handling |
 | M19 report, live URL, repo, deck, demo | partial | Live URL, report, deck and demo script done. Backup video and submission pending |
 
 ## Blockers
 
-Waiting for the user (see `MANUAL_ACTIONS.md`): the DronaHQ agents and their trigger URLs, the Gemini or Anthropic key when available, rotating the pasted secrets, the uptime monitor, a real commit from each teammate, the backup video and the submission.
+Waiting for the user: rotating the pasted secrets, changing the seeded account passwords, an outbound phone number on the DronaHQ Voice agent, the submission form and the DronaHQ post.
 
 ## Next steps
 
-1. Finish the Responder and Researcher agents on the Agentic platform, set the two trigger URLs on Railway, then run the live traces.
-2. Run the golden sets on the real model and put the numbers in the report and deck.
-3. Reset the demo workspace last, record the backup video, submit.
+1. Submit before 11 PM with credentials on the portal form.
+2. Optional after judging: move the database to Singapore, run a clean live-model golden set.
 
 ## Decisions log
 
