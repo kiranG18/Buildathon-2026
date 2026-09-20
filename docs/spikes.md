@@ -119,3 +119,13 @@ Findings:
 | End to end in production (`AGENT_PROVIDER_RESEARCHER=dronahq`) | A discovered prospect (C1, Warren Whitlock) got "DronaHQ Researcher saved 4 sourced facts ... through MCP", then was qualified at 72 and planned four touches. No `provider_fallback`. This is the trace where a DronaHQ agent calls our API and our API writes the result |
 | Responder webhook, direct call | HTTP 200 in 15 s. The agent called `set_classification` and `propose_slots` on our MCP and read the reply as positive with confidence 0.95, but answered the classification `interest`, which is not one of our values, and returned no structured result. The Responder stays on the direct provider until its Structured Output returns a valid result |
 | MCP tool timeout in DronaHQ | The allowed maximum was 15 s. It was left at 10 s, which is enough: our tools answer in milliseconds to about a second |
+
+## Hosted Responder end to end in production (20 Sep 2026)
+
+| Check | Result |
+| --- | --- |
+| Trigger Response JSON Schema | DronaHQ accepts basic types, `required`, `enum`, `anyOf`, `pattern`, `minItems` and `additionalProperties`. A schema with `minimum` or `maximum`, or a stray `{}` left in the box, is rejected and greys out Save & Publish. Even when accepted, the webhook reply only carried the agent's first step, so the schema did not return the result |
+| Decision channel | The agent submits its whole decision through our MCP tool `set_classification`, with typed arguments whose enums the tool's own schema enforces. It lands in `responder_decisions` (migration 006). `respond()` reads it, like the research callback. A stale or missing decision falls back to the direct provider |
+| End to end (`AGENT_PROVIDER_RESPONDER=dronahq`) | A simulated reply on a test prospect (C1) was recorded as "DronaHQ Responder: meeting_request", the enrollment moved to `replied_pos`, and a follow-up offering two slots was sent. No `provider_fallback` anywhere in the feed |
+| Pricing request | The same agent escalated a request for a 30 percent discount to a human, as the campaign rules require |
+| Latency | The Responder webhook returns in 12 to 17 s. The Researcher takes about 70 s, so the worker waits up to 110 s |

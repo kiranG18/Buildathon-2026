@@ -14,7 +14,7 @@ Deadline: Sunday 20 September 2026, 11:59 PM IST. Feature freeze 6 PM, deploy fr
 | P3 | LLMClient, schemas, RAG, agents, grounding, evals | done | Three providers (Anthropic, Gemini, Groq) behind one client. Real-model golden runs recorded in `docs/spikes.md` once complete |
 | P4 | Frontend wiring and prototype conformance | done | Every route renders from the live API, 0 console errors |
 | P5 | Email live, SMS, LinkedIn sandbox, voice adapter | email live and proven, SMS partial | A discovered prospect got a real email, a reply was matched, classified and answered. SMS: Twilio connected, first real text rejected (400) |
-| P6 | MCP server, DronaHQ agents, Apps Studio screens | app done, agents in progress | Native Apps Studio app (pluginId 77710) published. The Responder and Researcher agents are being built on the Agentic platform |
+| P6 | MCP server, DronaHQ agents, Apps Studio screens | done except the optional Voice agent | Native Apps Studio app (pluginId 77710) published. The hosted Researcher and Responder run in production and are traced end to end in `docs/spikes.md` |
 | P7 | Replay, replanning, analytics, golden-set scores | done | v1 and v2 show different measured scores |
 | P8 | Hardening, failure injection, security, full test matrix | done | 99 tests, CORS locked to dronahq.com origins, row level security on every table |
 | P9 | README, report, deck, demo script, submission | mostly done | Report and deck refreshed. Backup video and the submission form remain |
@@ -38,7 +38,7 @@ Deadline: Sunday 20 September 2026, 11:59 PM IST. Feature freeze 6 PM, deploy fr
 | M13 per-campaign RAG | done | `test_r1_*`, `test_r2_*` |
 | M14 structured output, tools, guardrails, escalation, evals | done | `agents/models.py`, MCP tools, `policy/grounding.py`, `evals/` |
 | M15 cost per prospect, per qualified lead, per conversation | done | `test_analytics_numbers_equal_database_counts`. Costs are measured only in live model mode |
-| M16 DronaHQ in the core with engineer-written code | partial | Native Apps Studio app done. Hosted Researcher and Responder agents in progress. Voice agent optional and not built |
+| M16 DronaHQ in the core with engineer-written code | done except optional Voice | Native Apps Studio app, hosted Researcher (saves facts through `save_research`) and hosted Responder (submits decisions through `set_classification`), both in production with fallback to the direct provider. Voice agent not built |
 | M17 shared repo, commits from all authors, clean | partial | One author in the history. CI secret scan runs on GitHub |
 | M18 malformed output, API failure, empty states | done | `tests/failure/` including 429 handling |
 | M19 report, live URL, repo, deck, demo | partial | Live URL, report, deck and demo script done. Backup video and submission pending |
