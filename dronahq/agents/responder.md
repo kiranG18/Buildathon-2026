@@ -29,5 +29,5 @@ Work like this:
 ```
 
 Tools: MCP server only. Enable `search_knowledge`, `get_timeline`, `propose_slots`, `book_meeting` and `create_escalation`. Leave `set_classification` off.
-Structured Output: paste `agents/schemas/responder.json`.
+Response: on the Webhook trigger, set Response to Standard and paste `dronahq/response-schemas/responder.json` into its JSON Schema box. The trigger's JSON Schema box is what makes the webhook return the result.
 Trigger: Webhook, response type Standard. Copy its URL into `DRONAHQ_RESPONDER_WEBHOOK_URL`. Cadence still gates every reply the agent proposes.
