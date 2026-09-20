@@ -4,6 +4,7 @@ Fake mode renders the deterministic templates. Live mode retrieves campaign know
 then the grounding check in code decides. One regeneration with the failure list, then the generic_safe variant.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from agents import llm_client, runtime, templates
@@ -34,9 +35,6 @@ class DraftOut:
     cost: float | None = None
     latency: float | None = None
     prompt_version: int | None = None
-
-
-import re
 
 
 def _clean_text(s: str) -> str:

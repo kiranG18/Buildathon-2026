@@ -155,10 +155,9 @@ def test_analytics_numbers_equal_database_counts(seeded, client, auth):
     assert rows["C1"]["cost_per_prospect"] > 0
 
 
-def test_only_an_admin_adds_users_with_a_role_and_a_private_password(seeded, client, auth):
+def test_admins_and_managers_add_users_with_a_role_and_a_private_password(seeded, client, auth):
     body = {"name": "Riya Sen", "role": "Rep", "rep_limit": 12}
-    for who in ("ava@helix.demo", "priya@helix.demo"):
-        assert client.post("/users", headers=auth(who), json=body).status_code == 403
+    assert client.post("/users", headers=auth("priya@helix.demo"), json=body).status_code == 403
     admin = auth("admin@helix.demo")
     r = client.post("/users", headers=admin, json=body)
     assert r.status_code == 201
@@ -179,14 +178,16 @@ def test_only_an_admin_adds_users_with_a_role_and_a_private_password(seeded, cli
         assert made["password"] not in json.dumps(db.q("select * from activity order by id desc limit 5"), default=str)
 
 
-def test_an_admin_adds_a_manager_who_can_manage_but_not_add_users(seeded, client, auth):
+def test_a_manager_adds_reps_and_managers_but_never_an_admin(seeded, client, auth):
     made = client.post("/users", headers=auth("admin@helix.demo"), json={"name": "Kavya Rao", "role": "Manager", "email": "Kavya@Team.Example"}).json()
     assert made["email"] == "kavya@team.example" and made["role"] == "Manager"
     login = client.post("/auth/login", json={"email": "KAVYA@team.example", "password": made["password"]})
     assert login.status_code == 200 and login.json()["user"]["role"] == "Manager"
     h = {"Authorization": "Bearer " + login.json()["token"]}
     assert len(client.get("/state", headers=h).json()["camps"]) == 4
-    assert client.post("/users", headers=h, json={"name": "Nope"}).status_code == 403
+    assert client.post("/users", headers=h, json={"name": "New Rep", "role": "Rep"}).status_code == 201
+    assert client.post("/users", headers=h, json={"name": "Peer Manager", "role": "Manager"}).status_code == 201
+    assert client.post("/users", headers=h, json={"name": "Sneaky Admin", "role": "Admin"}).status_code == 403
     assert client.post("/kill-switch", headers=h, json={"active": False}).status_code == 200
 
 

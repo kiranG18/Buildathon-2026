@@ -214,8 +214,11 @@ def test_gemini_provider_maps_the_model_role_asks_for_json_and_reads_usage(seede
 def test_groq_takes_over_when_the_primary_provider_has_no_key(seeded, live, monkeypatch):
     monkeypatch.setattr(get_settings(), "llm_provider", "anthropic")
     monkeypatch.setattr(get_settings(), "anthropic_api_key", "")
+    monkeypatch.setattr(get_settings(), "groq_api_key", "")
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "")
     monkeypatch.setattr(get_settings(), "llm_fallback_provider", "groq")
-    monkeypatch.setattr(get_settings(), "groq_api_key", "groq-key")
+    monkeypatch.setattr(get_settings(), "llm_fallback_key", "groq-key")
+    monkeypatch.setattr(get_settings(), "llm_fallback_model", "")
     seen = {}
 
     def fake_post(url, headers=None, json=None, timeout=None):
