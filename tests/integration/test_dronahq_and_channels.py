@@ -495,6 +495,17 @@ def test_linkedin_is_live_only_as_rep_assisted_and_a_pasted_reply_is_classified(
         REGISTRY.clear()
 
 
+def test_the_linkedin_bot_is_only_registered_where_node_exists(seeded, monkeypatch):
+    monkeypatch.setenv("LINKEDIN_LI_AT", "cookie")
+    monkeypatch.setattr(adapters.shutil, "which", lambda name: None)
+    adapters.register_configured()
+    assert type(REGISTRY["linkedin"]).__name__ == "LinkedInAssisted"
+    monkeypatch.setattr(adapters.shutil, "which", lambda name: "/usr/bin/node")
+    adapters.register_configured()
+    assert type(REGISTRY["linkedin"]).__name__ == "LinkedInBrowserAdapter"
+    REGISTRY.clear()
+
+
 def test_linkedin_sandbox_accepts_a_connection_after_a_day(seeded):
     from backend.channels import linkedin_sandbox
 

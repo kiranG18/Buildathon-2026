@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import logging
 import os
+import shutil
 import smtplib
 import subprocess
 import time
@@ -291,8 +292,9 @@ def register_configured() -> list[str]:
     if s.twilio_account_sid and s.twilio_auth_token and s.twilio_from_number:
         register(TwilioAdapter(s.twilio_account_sid, s.twilio_auth_token, s.twilio_from_number))
     li_at = os.getenv("LINKEDIN_LI_AT", "")
-    # Automated browser is PRIMARY when cookie is configured or mode is live; rep-assisted is fallback backup
-    if li_at or s.channel_mode_linkedin == "live":
+    # The automated browser needs Node and Chrome on the machine. Without Node (the deployed image has none) the rep-assisted channel stays in place,
+    # so a note is never recorded as sent when no bot could send it.
+    if shutil.which("node") and (li_at or s.channel_mode_linkedin == "live"):
         register(LinkedInBrowserAdapter(li_at, fallback=LinkedInAssisted()))
     else:
         register(LinkedInAssisted())
