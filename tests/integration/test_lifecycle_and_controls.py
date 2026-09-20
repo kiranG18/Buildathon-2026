@@ -153,3 +153,20 @@ def test_analytics_numbers_equal_database_counts(seeded, client, auth):
             cost = db.q1("select coalesce(sum(cost_usd), 0) as c from agent_runs where campaign_id = %s and status = 'done' and not is_replay", (cid,))["c"]
             assert abs(rows[cid]["cost_usd"] - cost) < 0.001
     assert rows["C1"]["cost_per_prospect"] > 0
+
+
+def test_only_an_admin_adds_a_rep_and_the_new_rep_can_sign_in_and_is_scoped(seeded, client, auth):
+    body = {"name": "Riya Sen", "rep_limit": 12}
+    for who in ("ava@helix.demo", "priya@helix.demo"):
+        assert client.post("/reps", headers=auth(who), json=body).status_code == 403
+    r = client.post("/reps", headers=auth("admin@helix.demo"), json=body)
+    assert r.status_code == 201
+    login = client.post("/auth/login", json={"email": "riya.sen@helix.demo", "password": "helix-demo"})
+    assert login.status_code == 200 and login.json()["user"]["role"] == "Rep"
+    h = {"Authorization": "Bearer " + login.json()["token"]}
+    state = client.get("/state", headers=h).json()
+    assert state["camps"] == [] and state["enr"] == []
+    assert client.post("/reps", headers=h, json=body).status_code == 403
+    assert client.post("/kill-switch", headers=h, json={"active": True, "reason": "x"}).status_code == 403
+    listed = {x["id"]: x for x in client.get("/reps", headers=h).json()}
+    assert listed[r.json()["id"]]["limits"] == 12
