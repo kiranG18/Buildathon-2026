@@ -9,6 +9,7 @@ Built for the Tech Contingent x DronaHQ Inter Guild Buildathon 2026 (18 to 20 Se
 ## Live demo
 
 - App: https://buildathon-2026-production.up.railway.app
+- The deployed workspace starts empty with every campaign archived. Create campaigns and add prospects (Discover or CSV import). The seeded three-campaign story loads locally with `python scripts/bootstrap.py`.
 - Sign in with the seeded local accounts (password `helix-demo`, local development only; a deployed workspace changes these passwords). Users an admin adds get a generated password, shown once, and everyone can change their own: `admin@helix.demo`, `ava@helix.demo` (manager), `marcus@helix.demo` (rep).
 - Self-serve tour for judges: `docs/demo.md`, section "Judge card".
 
@@ -40,6 +41,19 @@ flowchart LR
 ```
 
 Agents never send anything. A send passes the ten ordered gate checks (kill switch, campaign state, agent, channel, suppression, claim, frequency, rep quota, daily cap, approval rule), takes a per-prospect advisory lock, and writes under an idempotency key. Details: `docs/architecture.md`.
+
+## Tech stack
+
+| Layer | What we use | Why |
+| --- | --- | --- |
+| API and worker | Python 3.12, FastAPI, Pydantic v2, one image with two commands (web and worker) | Typed contracts for every model output and one deployable |
+| Data | Postgres 16 with pgvector and full-text search, psycopg 3, plain SQL migrations. Supabase in production | Queue (`jobs` table), locks and retrieval in one database, no Redis |
+| Models | One `LLMClient` over Groq (primary), Gemini (fallback) and Anthropic, with retries and output repair | Any provider can fail, so agents never call a vendor directly |
+| Agents on DronaHQ | Agentic platform (Researcher, Responder), Voice (Caller), MCP tools served by our API, Apps Studio app | DronaHQ is the agent runtime and part of the control plane, our code holds the rules |
+| RAG | pgvector plus full-text hybrid retrieval, grounding check in code | Every customer-facing claim must cite evidence |
+| Channels | Gmail API, Twilio, LinkedIn (rep-assisted, local browser tools), DronaHQ Voice | One policy gate in front of all of them |
+| Frontend | Static HTML, CSS and vanilla JS served by FastAPI, no build step | Fast to deploy and embeds in DronaHQ |
+| Hosting and CI | Railway (app), Supabase (database), GitHub Actions (tests, lint, secret scan) | |
 
 ## DronaHQ usage
 
@@ -121,7 +135,7 @@ All calls go through `agents/llm_client.py`: 30-second timeout, two retries with
 ## Tests
 
 ```bash
-python -m pytest        # 86 tests against a real Postgres, results in docs/test-log.md
+python -m pytest        # about 120 tests against a real Postgres, results in docs/test-log.md
 python -m ruff check .
 python scripts/ui_smoke.py && python scripts/ui_flows.py   # browser checks (Playwright and Edge)
 ```
@@ -129,6 +143,8 @@ python scripts/ui_smoke.py && python scripts/ui_flows.py   # browser checks (Pla
 Covered: every gate check, the seven conflict cases and the send race, pause isolation, Draft refusing a send, prompt version stamping and rollback, reply handling, approvals, rep offboarding, kill switch, role checks, webhook secrets, injection and CORS, LLM failure injection (garbage, empty, timeouts, 429), retrieval quality, MCP tools, the DronaHQ fallback, Gmail and Twilio adapters.
 
 ## Repo map
+
+Everything the product needs to run is under `backend/`, `agents/`, `rag/`, `frontend/`, `database/` and `seed/`. `evals/`, `tests/` and `scripts/` measure and operate it, and `dronahq/` and `docs/` hold what lives in DronaHQ and what we hand in.
 
 ```text
 backend/        the deployable: api/, core/, orchestrator/ (state machine, worker, controls, replies),
