@@ -69,7 +69,7 @@ def _rich(db: Db, p: dict, key: str, r: random.Random) -> list[dict]:
     return out
 
 
-def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: random.Random, email: str = "", phone: str = "") -> dict:
+def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: random.Random, email: str = "", phone: str = "", linkedin: str = "") -> dict:
     """Create the prospect (and company) or return the existing record. Matching is on lowercased email, so overlap across campaigns is detectable."""
     pid = slug(name)
     existing = db.q1("select id from prospects where id = %s", (pid,))
@@ -93,7 +93,7 @@ def make_prospect(db: Db, name: str, title: str, company: str, key: str, r: rand
     db.x(
         """insert into prospects (id, company_id, full_name, first_name, title, email, phone, linkedin_url, region, timezone, facts, rich)
            values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-        (pid, cid, name, first_name(name), title, email, phone, f"linkedin.com/in/{slug(name)}", region, _tz(comp["city"], indian), J(facts), J(rich)),
+        (pid, cid, name, first_name(name), title, email, phone, linkedin.strip() or f"linkedin.com/in/{slug(name)}", region, _tz(comp["city"], indian), J(facts), J(rich)),
     )
     return {"id": pid}
 
@@ -141,8 +141,8 @@ def import_rows(db: Db, campaign_id: str, rows: list[list[str]], by: dict) -> di
     key = _key_for(c)
     r = random.Random(js_hash(campaign_id) + 7)
     created = deduped = 0
-    for name, title, company, email, phone in ((x[0], x[1], x[2], x[3] if len(x) > 3 else "", x[4] if len(x) > 4 else "") for x in rows if len(x) >= 3 and x[0]):
-        pr = make_prospect(db, name, title, company, key, r, email, phone)
+    for name, title, company, email, phone, linkedin in ((x[0], x[1], x[2], *(x[3:6] + [""] * (3 - len(x[3:6])))) for x in rows if len(x) >= 3 and x[0]):
+        pr = make_prospect(db, name, title, company, key, r, email, phone, linkedin)
         if db.q1("select 1 as x from enrollments where campaign_id = %s and prospect_id = %s", (campaign_id, pr["id"])):
             deduped += 1
             continue

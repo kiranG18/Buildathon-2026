@@ -513,3 +513,13 @@ def test_linkedin_sandbox_accepts_a_connection_after_a_day(seeded):
         n = linkedin_sandbox.simulate_acceptance(db)
         again = linkedin_sandbox.simulate_acceptance(db)
     assert n >= 1 and again == 0
+
+
+def test_import_takes_a_real_linkedin_profile_url_and_generates_it_otherwise(seeded):
+    from backend.orchestrator import discovery
+
+    with scratch() as db:
+        discovery.import_rows(db, "C1", [["Real Person", "CTO", "Realco", "real@realco.example", "+14155550142", "https://www.linkedin.com/in/real-person-123"], ["Made Up", "CTO", "Madeco"]], {"name": "T"})
+        assert db.q1("select linkedin_url from prospects where id = 'real-person'")["linkedin_url"] == "https://www.linkedin.com/in/real-person-123"
+        assert db.q1("select linkedin_url from prospects where id = 'made-up'")["linkedin_url"] == "linkedin.com/in/made-up"
+
