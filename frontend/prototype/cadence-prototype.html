@@ -2173,10 +2173,39 @@ ACT.kbSearch=t=>{const q=$('#kq').value.trim();UI.kq=q;if(!q){UI.kres=null;repai
  const toks=q.toLowerCase().split(/\W+/).filter(x=>x.length>2);const cid=t.dataset.c;const seen=new Set();const res=[];
  S.kb.docs.filter(d=>d.scope==='global'||d.scope===cid).forEach(d=>d.chunks.forEach(k=>{if(seen.has(k))return;seen.add(k);const ch=S.kb.chunks[k];if(!ch)return;const lt=(ch.text+' '+d.name).toLowerCase();const hit=toks.filter(w=>lt.includes(w)).length;if(hit)res.push({id:k,doc:d.name,text:ch.text,s:hit/toks.length*(0.7+Math.min(0.3,hit*0.05))})}));
  UI.kres=res.sort((a,b)=>b.s-a.s).slice(0,4);repaint()};
-ACT.kbUp=t=>{const cid=t.dataset.c;openModal(`<h2>Upload a document</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Title</label><input class="inp" id="ku1" placeholder="Case study: Acme"></div><div class="grid g2"><div class="field"><label>Type</label><select class="sel" id="ku2"><option>case study</option><option>objections</option><option>ICP</option><option>playbook</option><option>pricing</option><option>brand</option></select></div><div class="field"><label>Scope</label><select class="sel" id="ku3"><option value="${cid}">${cid} only</option><option value="global">Global</option></select></div></div><div class="field"><label>Text (separate chunks with a blank line)</label><textarea class="txt" id="ku4" rows="6" placeholder="Paste markdown or plain text"></textarea></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="kugo">Upload and ingest</button></div>`);
- $('#kugo').onclick=()=>{const name=$('#ku1').value.trim(),txt=$('#ku4').value.trim();if(!name||!txt){toast('Add a title and some text.',{bad:true});return}
-  const parts=txt.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);const ids=parts.map((pt,i)=>{const id='K-U'+(++UID);S.kb.chunks[id]={id,doc:'DU'+UID,text:pt};return id});
-  const d={id:'DU'+UID,name,type:$('#ku2').value,scope:$('#ku3').value,chunks:ids,at:S.now};ids.forEach(k=>S.kb.chunks[k].doc=d.id);S.kb.docs.push(d);closeModal();toast(`Ingested ${esc(name)} as ${ids.length} chunks.`);repaint()}};
+ACT.kbUp=t=>{
+ const cid=(t&&t.dataset)?t.dataset.c:'';
+ const camps=S.camps||[];
+ const scopeOpts=[
+  `<option value="global" ${!cid||cid==='global'?'selected':''}>Global (all campaigns)</option>`,
+  ...camps.map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${x.id} - ${esc(x.name)}</option>`)
+ ].join('');
+ openModal(`<h2>Upload a document</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Choose file (optional: .txt, .md, .csv, .json)</label><input class="inp" type="file" id="ku0" accept=".txt,.md,.markdown,.json,.csv,.text"></div><div class="field"><label>Title</label><input class="inp" id="ku1" placeholder="Case study: Acme"></div><div class="grid g2"><div class="field"><label>Type</label><select class="sel" id="ku2"><option value="case study">case study</option><option value="objections">objections</option><option value="icp">icp</option><option value="playbook">playbook</option><option value="pricing">pricing</option><option value="brand">brand</option></select></div><div class="field"><label>Scope</label><select class="sel" id="ku3">${scopeOpts}</select></div></div><div class="field"><label>Text (separate chunks with a blank line)</label><textarea class="txt" id="ku4" rows="6" placeholder="Paste markdown or plain text, or select a file above"></textarea></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="kugo">Upload and ingest</button></div>`);
+ const fi=$('#ku0');
+ if(fi){
+  fi.onchange=e=>{
+   const f=e.target.files&&e.target.files[0];
+   if(!f)return;
+   const ti=$('#ku1');
+   if(ti&&!ti.value.trim()){ti.value=f.name.replace(/\.[^/.]+$/,'')}
+   const r=new FileReader();
+   r.onload=ev=>{const tx=$('#ku4');if(tx)tx.value=ev.target.result};
+   r.readAsText(f);
+  };
+ }
+ $('#kugo').onclick=()=>{
+  const name=$('#ku1').value.trim(),txt=$('#ku4').value.trim();
+  if(!name||!txt){toast('Add a title and some text, or select a file.',{bad:true});return}
+  const parts=txt.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  const ids=parts.map((pt,i)=>{const id='K-U'+(++UID);S.kb.chunks[id]={id,doc:'DU'+UID,text:pt};return id});
+  const d={id:'DU'+UID,name,type:$('#ku2').value,scope:$('#ku3').value||'global',chunks:ids,at:S.now};
+  ids.forEach(k=>S.kb.chunks[k].doc=d.id);
+  S.kb.docs.push(d);
+  closeModal();
+  toast(`Ingested ${esc(name)} as ${ids.length} chunks.`);
+  repaint();
+ };
+};
 /* ---------- analytics ---------- */
 function pgAnalytics(){
  const R=UI.fil.anr||'7d',since=R==='24h'?S.now-D:R==='3d'?S.now-3*D:R==='7d'?S.now-7*D:null;

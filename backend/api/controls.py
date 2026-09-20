@@ -159,6 +159,15 @@ def _move(db: Db, frm: str, to: str) -> dict:
 
 # --- suppression ----------------------------------------------------------------------------------------------------------
 
+@router.get("/suppression")
+def list_suppression(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[dict]:
+    rows = db.q("select * from suppression_list order by created_at desc")
+    return [
+        {"id": s["id"], "kind": s["kind"], "value": s["value"], "reason": s["reason"], "added_by": s.get("added_by") or "System", "by": s.get("added_by") or "System", "at": clock.ms(s["created_at"]) if s.get("created_at") else None}
+        for s in rows
+    ]
+
+
 @router.post("/suppression", status_code=201)
 def add_suppression(body: SuppressBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     if body.kind not in ("email", "domain", "phone"):
@@ -178,40 +187,43 @@ def remove_suppression(sid: str, user: User = Depends(mgr), db: Db = Depends(db_
 
 @router.post("/integrations/{key}/pause")
 def integ_pause(key: str, body: IntegPause, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
-    return {"replanned": controls.set_integration_paused(db, key, body.paused, user)}
+    canonical_key = {"email": "gmail", "sms": "twilio"}.get(key, key)
+    return {"replanned": controls.set_integration_paused(db, canonical_key, body.paused, user)}
 
 
 @router.post("/integrations/{key}/mode")
 def integ_mode(key: str, body: IntegMode, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    canonical_key = {"email": "gmail", "sms": "twilio"}.get(key, key)
     if body.mode not in ("live", "sandbox"):
         raise CadenceError("mode must be live or sandbox", code="validation_error")
-    row = db.q1("select * from integrations where key = %s", (key,))
+    row = db.q1("select * from integrations where key = %s", (canonical_key,))
     if not row:
         raise NotFound("Unknown integration")
     if body.mode == "live" and not row["can_live"]:
         raise StateConflict(f"{row['name']} cannot run live")
-    db.x("update integrations set mode = %s where key = %s", (body.mode, key))
+    db.x("update integrations set mode = %s where key = %s", (body.mode, canonical_key))
     return {"mode": body.mode}
 
 
 @router.post("/integrations/{key}/test")
 def integ_test(key: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
-    row = db.q1("select * from integrations where key = %s", (key,))
+    canonical_key = {"email": "gmail", "sms": "twilio"}.get(key, key)
+    row = db.q1("select * from integrations where key = %s", (canonical_key,))
     if not row:
         raise NotFound("Unknown integration")
     from backend.channels.base import REGISTRY
 
-    adapter = REGISTRY.get({"gmail": "email", "twilio": "sms", "linkedin": "linkedin"}.get(key, ""))
+    adapter = REGISTRY.get({"gmail": "email", "twilio": "sms", "linkedin": "linkedin"}.get(canonical_key, ""))
     ok, err = row["status"] == "ok", row["err"]
     if adapter is not None:
         try:
             adapter.test()
             ok, err = True, None
-        except CadenceError as exc:
-            ok, err = False, exc.message
-    elif key in ("gmail", "twilio") and row["mode"] == "live":
+        except Exception as exc:
+            ok, err = False, str(getattr(exc, "message", exc))
+    elif canonical_key in ("gmail", "twilio") and row["mode"] == "live":
         ok, err = False, "No credentials are configured, so this channel cannot go live."
-    db.x("update integrations set last_check = %s, status = %s, err = %s where key = %s", (clock.now(), "ok" if ok else "error", err, key))
+    db.x("update integrations set last_check = %s, status = %s, err = %s where key = %s", (clock.now(), "ok" if ok else "error", err, canonical_key))
     return {"ok": ok, "error": err}
 
 

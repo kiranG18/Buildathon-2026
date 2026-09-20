@@ -205,9 +205,34 @@ ACT.kbSearch=async t=>{const q=$('#kq').value.trim();UI.kq=q;if(!q){UI.kres=null
  try{const r=await api.post('/knowledge/search',{campaign_id:t.dataset.c,query:q,k:4});UI.kres=r.map(x=>({id:x.id,doc:x.label,text:x.text,s:x.score}));repaint()}
  catch(e){toast(e.message,{bad:true})}
 };
-ACT.kbUp=t=>{const cid=t.dataset.c;openModal(`<h2>Upload a document</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Title</label><input class="inp" id="ku1" placeholder="Case study: Acme"></div><div class="grid g2"><div class="field"><label>Type</label><select class="sel" id="ku2"><option>case study</option><option>objections</option><option>icp</option><option>playbook</option><option>pricing</option><option>brand</option></select></div><div class="field"><label>Scope</label><select class="sel" id="ku3"><option value="${cid}">${cid} only</option><option value="global">Global</option></select></div></div><div class="field"><label>Text (separate chunks with a blank line)</label><textarea class="txt" id="ku4" rows="6" placeholder="Paste markdown or plain text"></textarea></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="kugo">Upload and ingest</button></div>`);
- $('#kugo').onclick=()=>{const name=$('#ku1').value.trim(),text=$('#ku4').value.trim();if(!name||!text){toast('Add a title and some text.',{bad:true});return}
-  closeModal();run(()=>api.post('/knowledge/documents',{name,doc_type:$('#ku2').value,scope:$('#ku3').value,text}),{ok:r=>`Ingested ${esc(name)} as ${r.chunks.length} chunks.`})};
+ACT.kbUp=t=>{
+ const cid=(t&&t.dataset)?t.dataset.c:'';
+ const camps=S.camps||[];
+ const scopeOpts=[
+  `<option value="global" ${!cid||cid==='global'?'selected':''}>Global (all campaigns)</option>`,
+  ...camps.map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${x.id} - ${esc(x.name)}</option>`)
+ ].join('');
+ openModal(`<h2>Upload a document</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Choose file (optional: .txt, .md, .csv, .json)</label><input class="inp" type="file" id="ku0" accept=".txt,.md,.markdown,.json,.csv,.text"></div><div class="field"><label>Title</label><input class="inp" id="ku1" placeholder="Case study: Acme"></div><div class="grid g2"><div class="field"><label>Type</label><select class="sel" id="ku2"><option value="case study">case study</option><option value="objections">objections</option><option value="icp">icp</option><option value="playbook">playbook</option><option value="pricing">pricing</option><option value="brand">brand</option></select></div><div class="field"><label>Scope</label><select class="sel" id="ku3">${scopeOpts}</select></div></div><div class="field"><label>Text (separate chunks with a blank line)</label><textarea class="txt" id="ku4" rows="6" placeholder="Paste markdown or plain text, or select a file above"></textarea></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="kugo">Upload and ingest</button></div>`);
+ const fi=$('#ku0');
+ if(fi){
+  fi.onchange=e=>{
+   const f=e.target.files&&e.target.files[0];
+   if(!f)return;
+   const ti=$('#ku1');
+   if(ti&&!ti.value.trim()){ti.value=f.name.replace(/\.[^/.]+$/,'')}
+   const r=new FileReader();
+   r.onload=ev=>{const tx=$('#ku4');if(tx)tx.value=ev.target.result};
+   r.readAsText(f);
+  };
+ }
+ $('#kugo').onclick=()=>{
+  const name=$('#ku1').value.trim(),text=$('#ku4').value.trim();
+  if(!name||!text){toast('Add a title and some text, or select a file.',{bad:true});return}
+  const scope=$('#ku3').value||'global';
+  const doc_type=$('#ku2').value||'case study';
+  closeModal();
+  run(()=>api.post('/knowledge/documents',{name,doc_type,scope,text}),{ok:r=>`Ingested ${esc(name)} as ${r.chunks.length} chunks.`});
+ };
 };
 
 /* ---------- settings ---------- */

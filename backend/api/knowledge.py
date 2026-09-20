@@ -19,10 +19,28 @@ class SearchBody(BaseModel):
 
 
 class UploadBody(BaseModel):
-    name: str
-    doc_type: str
-    scope: str
-    text: str
+    name: str = "Untitled Document"
+    doc_type: str = "case study"
+    scope: str = "global"
+    text: str = ""
+
+
+@router.get("/knowledge/documents")
+def list_documents(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[dict]:
+    docs_rows = db.q("select * from knowledge_documents order by ingested_at desc, id")
+    chunks = db.q("select id, document_id from knowledge_chunks order by id")
+    by_doc: dict[str, list[str]] = {}
+    for c in chunks:
+        by_doc.setdefault(c["document_id"], []).append(c["id"])
+    return [
+        {"id": d["id"], "name": d["name"], "doc_type": d["doc_type"], "scope": d["scope"], "campaign_id": d["campaign_id"], "chunks": by_doc.get(d["id"], []), "ingested_at": clock.ms(d["ingested_at"])}
+        for d in docs_rows
+    ]
+
+
+@router.get("/knowledge/search")
+def search_get(query: str, campaign_id: str = "C1", k: int = 4, user: User = Depends(current_user), db: Db = Depends(db_dep)) -> list[dict]:
+    return retrieve.search(db, campaign_id, query, None, min(k, 10), use_cache=False)
 
 
 @router.post("/knowledge/search")
@@ -34,10 +52,20 @@ def search(body: SearchBody, user: User = Depends(current_user), db: Db = Depend
 
 @router.post("/knowledge/documents", status_code=201)
 def upload(body: UploadBody, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
-    if body.scope != "global" and not db.q1("select 1 as x from campaigns where id = %s", (body.scope,)):
-        raise NotFound("Campaign not found")
+    raw_scope = (body.scope or "global").strip()
+    if raw_scope.lower() in ("undefined", "null", "none", "", "global"):
+        scope = "global"
+    elif db.q1("select 1 as x from campaigns where id = %s", (raw_scope,)):
+        scope = raw_scope
+    else:
+        scope = "global"
+    name = (body.name or "Untitled Document").strip()
+    doc_type = (body.doc_type or "case study").lower().strip()
+    text = (body.text or "").strip()
+    if not text:
+        raise CadenceError("Document text cannot be empty", code="validation_error")
     doc_id = db.nid("DU")
-    ids = ingest.ingest_document(db, doc_id=doc_id, name=body.name.strip(), doc_type=body.doc_type, scope=body.scope, body=body.text)
+    ids = ingest.ingest_document(db, doc_id=doc_id, name=name, doc_type=doc_type, scope=scope, body=text)
     retrieve.clear_cache()
     return {"id": doc_id, "chunks": ids}
 
