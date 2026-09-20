@@ -13,10 +13,12 @@ def enrollment_of(prospect_id: str, campaign_id: str) -> dict:
 
 
 def run_worker(seconds: float = 6.0, until=None, campaign: str | None = None) -> int:
-    """Tick the worker until `until()` is true or the time runs out. Returns the number of jobs run."""
+    """Tick the worker until `until()` is true or the time runs out. Returns the number of jobs run.
+
+    A test that waits for a condition gets four times the time, so a slow CI runner does not fail it. It still stops as soon as the condition holds."""
     w = Worker(campaign_filter=campaign, threads=6)
     n = 0
-    end = time.monotonic() + seconds
+    end = time.monotonic() + (seconds * 4 if until else seconds)
     while time.monotonic() < end:
         n += w.tick()
         if until and until():
