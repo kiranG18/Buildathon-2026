@@ -102,7 +102,7 @@ function shell(body,seg){
  <main class="main" id="main">${kill}${NET.err?`<div class="banner bad" role="alert" style="border-radius:0">${ic('alert',16)}<span>Cannot reach the server. Retrying in 5 seconds. Last update ${NET.last?fT(S.now-(Date.now()-NET.last)):'not yet'}.</span></div>`:''}<div class="topbar"><button class="iconbtn side-toggle" data-a="sideToggle" aria-label="Menu">${ic('menu',18)}</button>
  <div class="search">${ic('search',16)}<input id="gs" placeholder="Search prospects, companies, campaigns" autocomplete="off" value="${esc(UI.q)}"><div id="sres"></div></div>
  <select class="sel sm" style="width:auto;max-width:220px" data-i="campSw" aria-label="Switch campaign"><option value="">Switch campaign</option>${S.camps.filter(c=>c.status!=='archived').map(c=>`<option value="${c.id}">${c.id} ${esc(c.name)}</option>`).join('')}</select>
- <span class="right"></span><span class="clock" title="The demo clock moves when you use Advance 24 hours in Settings">${ic('clock',14)}<span>Demo clock <b id="clk">${fDT(S.now)}</b></span></span>
+ <span class="right"></span><span class="clock" title="Advance 24 hours in Settings moves this clock forward for a demo run">${ic('clock',14)}<span><b id="clk">${fDT(S.now)}</b></span></span>
  <button class="iconbtn" data-go="/approvals" aria-label="Approvals">${ic('bell',18)}<span class="n" id="bn" ${n?'':'hidden'}>${n}</span></button>${killBtn}</div>
  <div class="view" id="view">${body}</div></main></div>`;
 }
