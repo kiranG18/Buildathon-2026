@@ -228,7 +228,7 @@ def signature(db: Db) -> str:
             (select count(*) from suppression_list),
             (select count(*) from enrollments),
             (select kill_switch::text || demo_clock_offset_hours::text from global_settings),
-            (select md5(coalesce(string_agg(id || state || coalesce(score, 0)::text, ',' order by id), '')) from enrollments),
+            (select md5(coalesce(string_agg(id || state || coalesce(score, 0)::text || coalesce(rep_id, ''), ',' order by id), '')) from enrollments),
             (select md5(coalesce(string_agg(prospect_id || campaign_id, ',' order by prospect_id), '')) from contact_claims where status = 'active'),
             (select count(*) from meetings),
             (select count(*) || '-' || coalesce(max(disposition), '') from calls),
@@ -240,31 +240,17 @@ def signature(db: Db) -> str:
 
 
 _cache: dict[str, tuple[str, float, dict]] = {}
-_sig_cache: tuple[float, str] | None = None
-SIG_CACHE_TTL = 1.0
-
-
-def get_cached_signature(db: Db) -> str:
-    global _sig_cache
-    now = time.monotonic()
-    if _sig_cache and (now - _sig_cache[0]) < SIG_CACHE_TTL:
-        return _sig_cache[1]
-    sig = signature(db)
-    _sig_cache = (now, sig)
-    return sig
-
-
-def invalidate_state_cache() -> None:
-    global _cache, _sig_cache
-    _cache.clear()
-    _sig_cache = None
 
 
 @router.get("/state")
 def get_state(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
-    """Rebuilding takes two dozen queries, so an unchanged workspace is served from memory after one cheap signature query."""
+    """Rebuilding takes two dozen queries, so an unchanged workspace is served from memory after one cheap signature query.
+
+    The signature itself must never be cached, only the rebuilt state: a stale signature reports "nothing changed"
+    for a real write and serves it back stale.
+    """
     cache_key = "manager" if not user.is_rep else user["id"]
-    sig = get_cached_signature(db)
+    sig = signature(db)
     hit = _cache.get(cache_key)
     if hit and hit[0] == sig:
         cached_out = hit[2]
@@ -276,4 +262,4 @@ def get_state(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> d
 
 @router.get("/state/sig")
 def get_sig(user: User = Depends(current_user), db: Db = Depends(db_dep)) -> dict:
-    return {"sig": get_cached_signature(db), "now": ms(clock.now())}
+    return {"sig": signature(db), "now": ms(clock.now())}

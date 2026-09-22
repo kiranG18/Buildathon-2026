@@ -74,3 +74,12 @@ def test_state_is_served_from_memory_until_something_changes(seeded, client, aut
         with tx() as db:
             db.x("update campaigns set version = version - 1 where id = 'C4'")
         state_api._cache.clear()
+
+
+def test_state_reflects_a_rep_reassignment_immediately(seeded, client, auth):
+    mgr = auth("ava@helix.demo")
+    before = client.get("/state", headers=mgr).json()
+    e = next(x for x in before["enr"] if x["rep"] and x["rep"] != "U3")
+    assert client.post(f"/enrollments/{e['id']}/reassign", headers=mgr, json={"replacement_rep_id": "U3"}).status_code == 200
+    after = client.get("/state", headers=mgr).json()
+    assert next(x for x in after["enr"] if x["id"] == e["id"])["rep"] == "U3"

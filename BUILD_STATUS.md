@@ -71,6 +71,7 @@ Waiting for the user: rotating the pasted secrets, changing the seeded account p
 | 2026-09-20 | Wait as long as a provider's Retry-After says on a 429 | Groq's free tier allows about 8,000 tokens a minute |
 | 2026-09-22 | Google Sheets CRM mirror pushes every enrollment via a service-account JWT bearer flow (no OAuth consent screen), overwrite-not-diff, called from the worker's existing maintenance tick | Judge-facing request for a spreadsheet view of the CRM, added post-deadline-extension; service account needs only "share with this email", no user sign-in |
 | 2026-09-22 | Permanent campaign delete (`DELETE /campaigns/{id}`) only accepts an already-archived campaign, is Admin-only, and erases every dependent row in one transaction (enrollments, messages, jobs, approvals, escalations, meetings, calls, eval_runs, campaign_versions, suppression rows, and it strips the id out of any `conflicts.campaign_ids` array) | Archived campaigns were invisible everywhere in the UI with no way to reclaim the row; deleting only from `archived` means nothing in flight is ever lost |
+| 2026-09-22 | `/state`'s own signature is no longer cached, only the rebuilt state is (`backend/api/state.py`); the `enrollments` hash now includes `rep_id` | A rep reassignment (new inline picker on a prospect's page) wrote to the database correctly but `/state` kept serving the pre-reassignment snapshot: the 1s `SIG_CACHE_TTL` on the signature itself meant a write inside that window went undetected regardless of what the signature's SQL covered, and `rep_id` was missing from that SQL besides. Fixing both also fixes `test_state_is_served_from_memory_until_something_changes`, previously flaky for the same reason |
 
 ## Known issues
 
@@ -80,5 +81,4 @@ Waiting for the user: rotating the pasted secrets, changing the seeded account p
 - Gemini and Groq prices in `agents/llm_client.py` are entered by hand and unverified.
 - Cross-region latency: each database query costs about 80 to 150 ms.
 - Two CI runs failed earlier on an intermittent test that was not identified. Later runs pass.
-- Identified 2026-09-22: `test_state_is_served_from_memory_until_something_changes` fails reliably alone, not flaky. `state.py`'s cache-invalidation signature does not pick up `campaigns.version` bumps, so a second `/state` call after a version change still serves the stale cached build. Pre-existing, unrelated to the Sheets CRM mirror added the same day. Not fixed yet (deadline priority).
 - The Sheets CRM mirror is one-way (Cadence to Sheets) and a full overwrite, not a diff; a manual edit in the sheet is silently overwritten on the next sync.
