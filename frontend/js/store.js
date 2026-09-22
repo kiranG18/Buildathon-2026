@@ -1,6 +1,7 @@
 /* Client state. S mirrors GET /state. Everything here reads S and never changes it. */
 let S=null;
 const C=id=>S.camps.find(c=>c.id===id);
+const pickCamp=id=>C(id)||S.camps[0];
 const P=id=>S.people[id];
 const E=id=>S.enrById[id];
 const U=id=>S.users.find(u=>u.id===id);
