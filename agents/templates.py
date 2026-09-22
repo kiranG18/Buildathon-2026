@@ -97,7 +97,10 @@ def compose(kind: str, *, p: dict, tkey: str, rep_name: str, ver: int, now_ms: f
         ch = "sms"
         segs = [pl(f"Hey {f}, {rf} from Helix. Sent you a note by email and LinkedIn about call QA. 15 min this week? Reply STOP to opt out.")]
     elif kind == "slots":
-        segs = [pl(f"Thanks {f}. {rf} has two slots: {sl[0]['label']} or {sl[1]['label']} ({tz}). Reply with the one you prefer and I will send the invite.")]
+        if sl[0].get("url") and sl[1].get("url"):
+            segs = [pl(f"Thanks {f}. {rf} has two slots: {sl[0]['label']} ({sl[0]['url']}) or {sl[1]['label']} ({sl[1]['url']}) ({tz}). Pick a link to book instantly, or reply with the one you prefer.")]
+        else:
+            segs = [pl(f"Thanks {f}. {rf} has two slots: {sl[0]['label']} or {sl[1]['label']} ({tz}). Reply with the one you prefer and I will send the invite.")]
         subject = "Re: " + co
     elif kind == "confirm":
         m = meeting or sl[0]

@@ -16,6 +16,7 @@ from backend.core.config import get_settings
 from backend.core.db import Db, tx
 from backend.core.errors import ChannelError
 from backend.core.logging import log
+from backend.integrations import sheets
 from backend.orchestrator import handlers
 from backend.orchestrator.repo import act, campaign, enrollment
 
@@ -130,6 +131,7 @@ class Worker:
             _watchdogs(db)
             inbound.poll_all(db)
             linkedin_sandbox.simulate_acceptance(db)
+            sheets.sync_if_due(db)
 
     def run_batch(self, jobs: list[dict]) -> None:
         """One campaign's claimed jobs run in claim order (best ICP score first), so the scarce daily slots go to the best prospects."""

@@ -39,7 +39,16 @@ def js_hash(s: str) -> int:
 
 
 def slots_for(now_ms: float) -> list[dict]:
-    """Two meeting slots starting two days out, weekdays only, on different days."""
+    """Two real open Calendly slots when CALENDLY_MODE=live; otherwise two deterministic fake slots
+    starting two days out, weekdays only, on different days. A Calendly outage falls back to fake."""
+    from backend.core.config import get_settings
+    from backend.integrations import calendly
+
+    if get_settings().calendly_mode == "live":
+        try:
+            return calendly.available_times(now_ms)
+        except calendly.CalendlyUnavailable:
+            pass
     start = dt(now_ms) + timedelta(days=2)
     out: list[dict] = []
     for i in range(12):

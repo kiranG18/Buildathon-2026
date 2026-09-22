@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     worker_campaign_id: str = ""
     embedded_worker: bool = False
 
+    calendly_mode: str = "off"
+    calendly_api_token: str = ""
+    calendly_event_type_uri: str = ""
+    calendly_webhook_signing_key: str = ""
+
+    sheets_enabled: bool = False
+    sheets_spreadsheet_id: str = ""
+    sheets_sheet_name: str = "CRM"
+    sheets_service_account_json: str = ""
+    sheets_sync_seconds: int = 120
+
     @model_validator(mode="after")
     def production_needs_secrets(self):
         if self.app_env == "production":

@@ -14,6 +14,7 @@ Results of the checks the plan schedules for the first hours. A check marked "no
 | 8 | Gmail send and reply through a plus-addressed inbox | Adapter tested against a mock transport. The real account is not yet connected | MA-08 |
 | 9 | Twilio SMS to a verified phone | Adapter and signature check tested. The real account is not yet connected | MA-09 |
 | 10 | AI credits cover the demo volume | Not yet run | MA-11a |
+| 11 | Calendly: token auth, real availability, and a webhook subscription | Pass locally, run against the real Calendly API. Token verified (`GET /users/me` returns the account), event type found, `GET /event_type_available_times` returned real open slots, a webhook subscription was created pointed at the Railway URL with a signing key for HMAC verification. Not yet live in production (`CALENDLY_MODE` still `off` on Railway) | `backend/integrations/calendly.py`, webhook subscription `553fe3fc-57f8-4692-a691-a0a959ca5a5e` |
 
 ## Fallbacks that are already built
 

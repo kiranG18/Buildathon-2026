@@ -8,6 +8,7 @@ import time
 from fastapi import APIRouter, Depends
 
 from backend.core import clock
+from backend.core.config import get_settings
 from backend.core.db import Db
 from backend.core.security import User, current_user, db_dep
 
@@ -143,13 +144,15 @@ def build_state(db: Db, user: User) -> dict:
                    "canLive": i["can_live"], "paused": i["paused"]}
         for i in db.q("select * from integrations order by key")
     }
+    settings = get_settings()
+    crm_url = f"https://docs.google.com/spreadsheets/d/{settings.sheets_spreadsheet_id}/edit" if settings.sheets_enabled and settings.sheets_spreadsheet_id else None
     return {
         "now": ms(clock.now()),
         "user": {k: user[k] for k in ("id", "name", "role", "email")},
         "kill": {"at": ms(gs["kill_at"]), "by": gs["kill_by"]} if gs["kill_switch"] else None,
         "camps": camps, "users": users, "people": people, "enr": enr, "msgs": msgs, "acts": acts, "jobs": jobs, "approvals": approvals, "escal": escal,
         "conflicts": conflicts, "meetings": meetings, "calls": calls, "claims": claims, "suppress": suppress, "prompts": prompts, "kb": kb, "integ": integ,
-        "hist": {},
+        "hist": {}, "crmUrl": crm_url,
     }
 
 

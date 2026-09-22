@@ -162,3 +162,34 @@ So on a free plan, `discover()` always falls back to the seeded pool (the search
 - [ ] Set `APOLLO_API_KEY` locally in `.env` and on both Railway services.
 - [ ] If you upgrade to a paid plan at any point, `discover()` and `/tools/enrich`'s person-match path activate automatically with no code changes - re-run the two blocked calls above and update this table.
 - [ ] `discover()`'s existing cap (max 10 per call) keeps credit use predictable regardless of plan.
+
+## MA-15 Google Sheets CRM mirror (blocks the Sheets sync; deadline 6 PM 22 Sep 2026)
+
+Code is done: `backend/integrations/sheets.py` pushes every enrollment (prospect x campaign, with stage,
+score, rep, last touch) to a spreadsheet tab. The worker calls it every `SHEETS_SYNC_SECONDS` (default
+120s) once enabled; `python -m scripts.sheets_sync` runs it once on demand. Auth is a service account, so
+there is no OAuth consent screen - only the steps below.
+
+- [ ] Go to https://console.cloud.google.com/, create a project (or reuse one), then **APIs & Services >
+      Library**, search "Google Sheets API", click **Enable**.
+- [ ] **APIs & Services > Credentials > Create Credentials > Service account.** Any name (e.g.
+      `cadence-sheets-sync`). No roles needed, no user access needed. Create it.
+- [ ] Open the new service account, tab **Keys > Add key > Create new key > JSON**. This downloads a
+      `.json` file - copy its `client_email` value (looks like
+      `cadence-sheets-sync@<project>.iam.gserviceaccount.com`).
+- [ ] Create (or open) the Google Sheet you want as the CRM mirror. Click **Share**, paste that
+      `client_email`, give it **Editor**, uncheck "notify". This is the only permission step - the service
+      account has no other access to your Google account.
+- [ ] Rename (or add) a tab in that sheet to match `SHEETS_SHEET_NAME` (default `CRM`), or set
+      `SHEETS_SHEET_NAME` to match an existing tab name.
+- [ ] Copy the Sheet ID from its URL: `https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit`.
+- [ ] Set on the host (Railway, both web and worker services) and in local `.env`:
+      - `SHEETS_ENABLED=true`
+      - `SHEETS_SPREADSHEET_ID=<the id from the URL>`
+      - `SHEETS_SHEET_NAME=CRM` (or your tab name)
+      - `SHEETS_SERVICE_ACCOUNT_JSON=<the entire downloaded JSON file, as one line>` - never commit this
+        file; paste its contents directly into the env var value.
+- [ ] Run `python -m scripts.sheets_sync` once locally to prove it end to end, then check the sheet fills
+      in. Report the row count printed and whether the sheet updated. Record the result in `docs/spikes.md`.
+- [ ] Delete the downloaded JSON key file from disk once it is pasted into the env var - it is a live
+      credential and must never be a tracked file.
