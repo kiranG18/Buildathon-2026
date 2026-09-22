@@ -70,6 +70,7 @@ Waiting for the user: rotating the pasted secrets, changing the seeded account p
 | 2026-09-20 | Add Gemini and Groq providers | The team has no Anthropic API key, only a chat subscription |
 | 2026-09-20 | Wait as long as a provider's Retry-After says on a 429 | Groq's free tier allows about 8,000 tokens a minute |
 | 2026-09-22 | Google Sheets CRM mirror pushes every enrollment via a service-account JWT bearer flow (no OAuth consent screen), overwrite-not-diff, called from the worker's existing maintenance tick | Judge-facing request for a spreadsheet view of the CRM, added post-deadline-extension; service account needs only "share with this email", no user sign-in |
+| 2026-09-22 | Permanent campaign delete (`DELETE /campaigns/{id}`) only accepts an already-archived campaign, is Admin-only, and erases every dependent row in one transaction (enrollments, messages, jobs, approvals, escalations, meetings, calls, eval_runs, campaign_versions, suppression rows, and it strips the id out of any `conflicts.campaign_ids` array) | Archived campaigns were invisible everywhere in the UI with no way to reclaim the row; deleting only from `archived` means nothing in flight is ever lost |
 
 ## Known issues
 

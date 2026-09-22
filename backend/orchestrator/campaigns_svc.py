@@ -173,6 +173,24 @@ def close(db: Db, campaign_id: str, by: dict, status: str) -> dict:
     return {"status": status}
 
 
+def delete(db: Db, campaign_id: str, by: dict) -> dict:
+    """Permanently erase an archived campaign and everything scoped to it. Only an archived campaign qualifies:
+    it already has no queued jobs and cannot be live, so there is nothing in flight to lose.
+    """
+    c = campaign(db, campaign_id)
+    if c["status"] != "archived":
+        raise StateConflict(f"A {c['status']} campaign must be archived before it can be deleted")
+    db.x("update campaigns set parent_id = null where parent_id = %s", (campaign_id,))
+    db.x("delete from calls where enrollment_id in (select id from enrollments where campaign_id = %s)", (campaign_id,))
+    for table in ("meetings", "escalations", "approvals", "messages", "jobs", "activity", "contact_claims", "enrollments", "campaign_versions", "suppression_list", "eval_runs"):
+        db.x(f"delete from {table} where campaign_id = %s", (campaign_id,))
+    db.x("update conflicts set campaign_ids = array_remove(campaign_ids, %s) where %s = any(campaign_ids)", (campaign_id, campaign_id))
+    db.x("delete from conflicts where campaign_ids = '{}'")
+    db.x("delete from campaigns where id = %s", (campaign_id,))
+    act(db, None, "stop", f"{by['name']} permanently deleted {c['name']}", agent="Manager")
+    return {"deleted": campaign_id}
+
+
 def duplicate(db: Db, campaign_id: str, by: dict, name: str | None = None) -> dict:
     c = campaign(db, campaign_id)
     cid = _next_id(db)

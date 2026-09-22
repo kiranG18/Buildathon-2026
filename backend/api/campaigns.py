@@ -149,6 +149,11 @@ def archive(cid: str, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> di
     return campaigns_svc.close(db, cid, user, "archived")
 
 
+@router.delete("/campaigns/{cid}")
+def delete_campaign(cid: str, user: User = Depends(require("Admin")), db: Db = Depends(db_dep)) -> dict:
+    return campaigns_svc.delete(db, cid, user)
+
+
 @router.post("/campaigns/{cid}/duplicate", status_code=201)
 def duplicate(cid: str, body: DuplicateBody | None = None, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
     return campaigns_svc.duplicate(db, cid, user, body.name if body else None)
