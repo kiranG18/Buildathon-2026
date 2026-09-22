@@ -83,3 +83,16 @@ def test_state_reflects_a_rep_reassignment_immediately(seeded, client, auth):
     assert client.post(f"/enrollments/{e['id']}/reassign", headers=mgr, json={"replacement_rep_id": "U3"}).status_code == 200
     after = client.get("/state", headers=mgr).json()
     assert next(x for x in after["enr"] if x["id"] == e["id"])["rep"] == "U3"
+
+
+def test_reassigning_a_prospect_grants_the_new_rep_visibility_on_their_own_dashboard(seeded, client, auth):
+    """A rep's /state only shows enrollments in campaigns they're assigned to. Reassigning one enrollment to a rep
+    who isn't on that campaign must grant that campaign, or the rep can never see the prospect they were just given."""
+    mgr, rep = auth("ava@helix.demo"), auth("marcus@helix.demo")
+    before = client.get("/state", headers=mgr).json()
+    e = next(x for x in before["enr"] if x["cid"] not in {c["id"] for c in client.get("/state", headers=rep).json()["camps"]})
+    assert e["id"] not in {x["id"] for x in client.get("/state", headers=rep).json()["enr"]}
+    assert client.post(f"/enrollments/{e['id']}/reassign", headers=mgr, json={"replacement_rep_id": "U3"}).status_code == 200
+    after_rep = client.get("/state", headers=rep).json()
+    assert e["id"] in {x["id"] for x in after_rep["enr"]}
+    assert e["cid"] in {c["id"] for c in after_rep["camps"]}

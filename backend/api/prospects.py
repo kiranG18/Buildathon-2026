@@ -101,8 +101,13 @@ def reassign(eid: str, body: ReassignBody, user: User = Depends(mgr), db: Db = D
     rep = db.q1("select id from users where id = %s and role = 'Rep' and active", (body.replacement_rep_id,))
     if not rep:
         raise NotFound("Rep not found or offboarded")
-    enrollment(db, eid)
+    e = enrollment(db, eid)
     db.x("update enrollments set rep_id = %s where id = %s", (rep["id"], eid))
+    # A rep only sees a campaign's enrollments once assigned to that campaign, regardless of who owns any one of them.
+    db.x(
+        "insert into rep_assignments (rep_id, campaign_id, active) values (%s,%s,true) on conflict (rep_id, campaign_id) do update set active = true",
+        (rep["id"], e["campaign_id"]),
+    )
     return {"rep_id": rep["id"]}
 
 
