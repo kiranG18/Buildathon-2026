@@ -69,6 +69,7 @@ ACT.pause=t=>{const id=idOf(t);run(()=>api.post('/campaigns/'+id+'/pause'),{opti
 ACT.resume=t=>{const id=idOf(t);run(()=>api.post('/campaigns/'+id+'/resume'),{optimistic:()=>{C(id).status='live'},ok:'Resumed. Held jobs continue.'})};
 ACT.complete=t=>{const c=C(idOf(t));UI.menu=null;confirmBox('Complete this campaign',`${esc(c.name)} stops all activity and becomes read-only. Analytics stay available.`,'Complete campaign',()=>run(()=>api.post('/campaigns/'+c.id+'/complete'),{ok:'Campaign completed.'}))};
 ACT.archive=t=>{const c=C(idOf(t));UI.menu=null;confirmBox('Archive this campaign',`${esc(c.name)} is hidden from the default list. Analytics stay available.`,'Archive',()=>run(()=>api.post('/campaigns/'+c.id+'/archive'),{ok:'Archived.',after:()=>go('/campaigns')}),true)};
+ACT.delCamp=t=>{const c=C(idOf(t));UI.menu=null;confirmBox('Delete this campaign for good',`${esc(c.name)} and every prospect, message, job and analytics row scoped to it are permanently erased. This cannot be undone.`,'Delete permanently',()=>run(()=>api.del('/campaigns/'+c.id),{ok:'Deleted.',after:()=>go('/campaigns')}),true)};
 ACT.campEdit=t=>{const c=C(idOf(t));if(!c)return;const list=v=>(v||[]).join(', ');
  openModal(`<h2>Edit ${esc(c.name)}</h2><p class="muted" style="margin:6px 0 14px">Saved as a new campaign version. Agents pick it up on their next step, and other campaigns are not affected.</p>
  <div class="col gap12"><div class="field"><label>Name</label><input class="inp" id="ce1" value="${esc(c.name)}"></div>
@@ -257,6 +258,13 @@ Password: ${esc(r.password)}</div><div class="mf"><button class="btn" data-a="cl
 ACT.pwOpen=()=>{openModal(`<h2>Change your password</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Current password</label><input class="inp" id="pw1" type="password" autocomplete="current-password"></div><div class="field"><label>New password (8 characters or more)</label><input class="inp" id="pw2" type="password" autocomplete="new-password"></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="pw3">Change password</button></div>`);
  $('#pw3').onclick=async()=>{const cur=$('#pw1').value,nw=$('#pw2').value;if(nw.length<8){toast('Use at least 8 characters.',{bad:true});return}
   try{await api.post('/auth/password',{current:cur,new:nw});closeModal();toast('Password changed.')}catch(e){toast(e.message,{bad:true})}};
+};
+ACT.repEdit=t=>{
+ const u=U(idOf(t));
+ openModal(`<h2>Edit ${esc(u.name)}</h2><div class="col gap12" style="margin-top:14px"><div class="field"><label>Full name</label><input class="inp" id="re1" value="${esc(u.name)}"></div><div class="field"><label>Title</label><input class="inp" id="re2" value="${esc(u.title||'')}"></div></div><div class="mf"><button class="btn" data-a="closeModal">Cancel</button><button class="btn pri" id="re3">Save</button></div>`);
+ $('#re3').onclick=()=>{const name=$('#re1').value.trim();if(!name){toast('Enter a name.',{bad:true});return}
+  const title=$('#re2').value.trim();closeModal();
+  run(()=>api.patch('/users/'+u.id,{name,title}),{ok:'Profile saved.'})};
 };
 ACT.repOff=async t=>{
  const u=U(idOf(t));let aff;

@@ -257,3 +257,35 @@ def test_deleting_a_rep_with_work_needs_a_replacement_and_moves_the_work(seeded,
         row = db.q1("select active from users where id = 'U3'")
         assert row is None or row["active"] is False
     assert client.post("/auth/login", json={"email": "marcus@helix.demo", "password": "helix-demo"}).status_code == 401
+
+
+def test_a_manager_edits_any_users_profile_but_a_rep_cannot(seeded, client, auth):
+    mgr = auth("ava@helix.demo")
+    r = client.patch("/users/U3", headers=mgr, json={"name": "Marcus Leeward", "title": "Senior AE"})
+    assert r.status_code == 200 and r.json() == {"name": "Marcus Leeward", "title": "Senior AE"}
+    with tx() as db:
+        row = db.q1("select name, title from users where id = 'U3'")
+        assert row["name"] == "Marcus Leeward" and row["title"] == "Senior AE"
+    assert client.patch("/users/U1", headers=mgr, json={"name": "Nadia Frostbite"}).status_code == 200
+    assert client.patch("/users/U3", headers=auth("priya@helix.demo"), json={"name": "x"}).status_code == 403
+    assert client.patch("/users/U999", headers=mgr, json={"name": "Nobody"}).status_code == 404
+    assert client.patch("/users/U3", headers=mgr, json={"name": ""}).status_code == 400
+
+
+def test_only_an_archived_campaign_can_be_permanently_deleted(seeded, client, auth):
+    admin, mgr = auth("admin@helix.demo"), auth("ava@helix.demo")
+    live = client.delete("/campaigns/C1", headers=admin)
+    assert live.status_code == 409 and live.json()["error"]["code"] == "state_conflict"
+    assert client.delete("/campaigns/C1", headers=mgr).status_code == 403
+    assert client.post("/campaigns/C1/archive", headers=mgr).status_code == 200
+    with tx() as db:
+        before = {t: db.q1(f"select count(*) as n from {t} where campaign_id = 'C1'")["n"] for t in ("enrollments", "messages", "jobs", "escalations", "approvals", "meetings")}
+    assert sum(before.values()) > 0
+    ok = client.delete("/campaigns/C1", headers=admin)
+    assert ok.status_code == 200 and ok.json()["deleted"] == "C1"
+    with tx() as db:
+        assert db.q1("select 1 as x from campaigns where id = 'C1'") is None
+        for t in ("enrollments", "messages", "jobs", "escalations", "approvals", "meetings", "campaign_versions", "eval_runs"):
+            assert db.q1(f"select count(*) as n from {t} where campaign_id = 'C1'")["n"] == 0
+        assert db.q1("select count(*) as n from conflicts where 'C1' = any(campaign_ids)")["n"] == 0
+    assert client.delete("/campaigns/C1", headers=admin).status_code == 404

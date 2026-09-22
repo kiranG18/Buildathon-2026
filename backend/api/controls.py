@@ -38,6 +38,11 @@ class RepPatch(BaseModel):
     rep_limit: int = Field(ge=0, le=500)
 
 
+class ProfilePatch(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    title: str = Field(default="", max_length=80)
+
+
 class SuppressBody(BaseModel):
     kind: str
     value: str
@@ -104,6 +109,18 @@ def patch_rep(rid: str, body: RepPatch, user: User = Depends(mgr), db: Db = Depe
     if not db.x("update users set rep_limit = %s where id = %s and role = 'Rep'", (body.rep_limit, rid)):
         raise NotFound("Rep not found")
     return {"limits": body.rep_limit}
+
+
+@router.patch("/users/{uid}")
+def patch_profile(uid: str, body: ProfilePatch, user: User = Depends(mgr), db: Db = Depends(db_dep)) -> dict:
+    """Edit a rep's, manager's or admin's name and title. Email, role and password have their own flows."""
+    u = get_user(db, uid)
+    if not u:
+        raise NotFound("User not found")
+    name, title = body.name.strip(), body.title.strip()
+    db.x("update users set name = %s, title = %s where id = %s", (name, title, uid))
+    act(db, None, "agent", f"{user['name']} edited {u['name']}'s profile", agent="Manager")
+    return {"name": name, "title": title}
 
 
 def _affected(db: Db, rid: str) -> dict:
